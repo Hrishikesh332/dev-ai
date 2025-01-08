@@ -102,6 +102,23 @@ st.markdown("""
     .add-product-btn:hover {
         background-color: #45a049;
     }
+        /* Media upload button */
+    .media-upload-btn {
+        background-color: #f0f0f0;
+        border: none;
+        color: #333;
+        padding: 8px 16px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 14px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+    .media-upload-btn:hover {
+        background-color: #e0e0e0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -202,10 +219,29 @@ def chat_page():
                 else:
                     st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask about fashion products..."):
+    col1, col2 = st.columns([9, 1])
+    
+    with col1:
+        prompt = st.chat_input("Ask about fashion products...")
+    
+    with col2:
+        media_file = st.file_uploader("", type=["jpg", "jpeg", "png"], label_visibility="collapsed", 
+                                      accept_multiple_files=False, key="media_uploader")
+        st.markdown('<label for="media_uploader" class="media-upload-btn">+</label>', unsafe_allow_html=True)
+    
+    if prompt or media_file:
         with st.chat_message("user", avatar="👤"):
-            st.markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+            if prompt:
+                st.markdown(prompt)
+            if media_file:
+                st.image(media_file)
+        
+        user_message = {"role": "user", "content": prompt}
+        
+        if media_file:
+            user_message["media_file"] = media_file
+        
+        st.session_state.messages.append(user_message)
 
         with st.chat_message("assistant", avatar="🤵‍♂️"):
             with st.spinner("Finding perfect matches..."):
