@@ -84,12 +84,12 @@ st.markdown("""
     /* Add Product Data button */
     .add-product-btn {
         position: fixed;
-        top: 60px;
+        top: 20px;
         right: 20px;
         background-color: #4CAF50;
         border: none;
         color: white;
-        padding: 10px 30px;
+        padding: 10px 20px;
         text-align: center;
         text-decoration: none;
         display: inline-block;
@@ -101,12 +101,6 @@ st.markdown("""
     }
     .add-product-btn:hover {
         background-color: #45a049;
-    }
-    .add-product-container {
-        display: none;
-    }
-    .add-product-container.show {
-        display: block;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -181,7 +175,6 @@ def add_product_data():
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-
 def chat_page():
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
@@ -226,9 +219,9 @@ def chat_page():
         st.session_state.messages.append({"role": "assistant", "content": response_data})
     
     st.markdown("""
-        <button class="add-product-btn" onclick="window.location.href='?page=add_product'">
+        <a class="add-product-btn" href="/?page=add_product">
             + Product Data
-        </button>
+        </a>
     """, unsafe_allow_html=True)
     
     with st.sidebar:
@@ -246,7 +239,8 @@ def chat_page():
         """, unsafe_allow_html=True)
 
 def main():
-    page = st.experimental_get_query_params().get("page", ["chat"])[0]
+    query_params = st.experimental_get_query_params()
+    page = query_params.get("page", ["chat"])[0]
 
     if page == "chat":
         chat_page()
