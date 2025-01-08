@@ -35,8 +35,7 @@ def add_product_data():
         else:
             st.warning("Please fill in all fields.")
     
-    if st.button("Return to Chat"):
-        st.experimental_set_query_params(page="chat")
+    st.markdown('<a href="/">Return to Chat</a>', unsafe_allow_html=True)
 
 def main():
     add_product_data()
