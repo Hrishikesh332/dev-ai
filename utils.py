@@ -4,7 +4,6 @@ from twelvelabs import TwelveLabs
 from pymilvus import connections, Collection
 from openai import OpenAI
 
-
 load_dotenv()
 
 # Load environment variables
