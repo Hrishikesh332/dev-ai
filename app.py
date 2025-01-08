@@ -89,7 +89,7 @@ st.markdown("""
         background-color: #4CAF50;
         border: none;
         color: white;
-        padding: 10px 40px;
+        padding: 10px 60px;
         text-align: center;
         text-decoration: none;
         display: inline-block;
