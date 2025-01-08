@@ -1,7 +1,11 @@
 import os
+from dotenv import load_dotenv
 from twelvelabs import TwelveLabs
 from pymilvus import connections, Collection
 from openai import OpenAI
+
+
+load_dotenv()
 
 # Load environment variables
 COLLECTION_NAME = os.getenv('COLLECTION_NAME')
