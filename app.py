@@ -175,6 +175,7 @@ def add_product_data():
     
     st.markdown('</div>', unsafe_allow_html=True)
 
+
 def chat_page():
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
