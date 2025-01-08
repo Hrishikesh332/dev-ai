@@ -102,6 +102,12 @@ st.markdown("""
     .add-product-btn:hover {
         background-color: #45a049;
     }
+    .add-product-container {
+        display: none;
+    }
+    .add-product-container.show {
+        display: block;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -137,40 +143,41 @@ def render_product_details(source):
             if source['video_url']:
                 st.video(source['video_url'])
 
-def add_product_data():
-    st.subheader("Add Product Data")
-    
-    product_id = st.text_input("Product ID")
-    title = st.text_input("Title")
-    description = st.text_area("Description")
-    link = st.text_input("Link")
-    video_url = st.text_input("Video URL")
-    
-    if st.button("Add Product"):
-        if product_id and title and description and link and video_url:
-            product_data = {
-                "product_id": product_id,
-                "title": title,
-                "desc": description,
-                "link": link,
-                "video_url": video_url
-            }
-            
-            with st.spinner("Processing product..."):
-                embeddings, error = generate_embedding(product_data)
                 
-                if error:
-                    st.error(f"Error processing product: {error}")
-                else:
-                    insert_result = insert_embeddings(collection, embeddings)
+def add_product_data():
+    with st.container(class_name="add-product-container"):
+        st.subheader("Add Product Data")
+        
+        product_id = st.text_input("Product ID")
+        title = st.text_input("Title")
+        description = st.text_area("Description")
+        link = st.text_input("Link")
+        video_url = st.text_input("Video URL")
+        
+        if st.button("Add Product"):
+            if product_id and title and description and link and video_url:
+                product_data = {
+                    "product_id": product_id,
+                    "title": title,
+                    "desc": description,
+                    "link": link,
+                    "video_url": video_url
+                }
+                
+                with st.spinner("Processing product..."):
+                    embeddings, error = generate_embedding(product_data)
                     
-                    if insert_result:
-                        st.success("Product data added successfully!")
+                    if error:
+                        st.error(f"Error processing product: {error}")
                     else:
-                        st.error("Failed to add product data.")
-        else:
-            st.warning("Please fill in all fields.")
-
+                        insert_result = insert_embeddings(collection, embeddings)
+                        
+                        if insert_result:
+                            st.success("Product data added successfully!")
+                        else:
+                            st.error("Failed to add product data.")
+            else:
+                st.warning("Please fill in all fields.")
 def main():
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
@@ -214,7 +221,11 @@ def main():
         
         st.session_state.messages.append({"role": "assistant", "content": response_data})
     
-    st.markdown('<button class="add-product-btn" onclick="window.location.href=\'#add-product-data\'">+ Product Data</button>', unsafe_allow_html=True)
+    st.markdown("""
+        <button class="add-product-btn" onclick="document.querySelector('.add-product-container').classList.toggle('show')">
+            + Product Data
+        </button>
+    """, unsafe_allow_html=True)
     
     with st.sidebar:
         st.markdown("""
