@@ -111,6 +111,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
 def render_product_details(source):
     with st.container():
         col1, col2 = st.columns([2, 1])
@@ -143,41 +144,43 @@ def render_product_details(source):
             if source['video_url']:
                 st.video(source['video_url'])
 
-                
 def add_product_data():
-    with st.container(class_name="add-product-container"):
-        st.subheader("Add Product Data")
-        
-        product_id = st.text_input("Product ID")
-        title = st.text_input("Title")
-        description = st.text_area("Description")
-        link = st.text_input("Link")
-        video_url = st.text_input("Video URL")
-        
-        if st.button("Add Product"):
-            if product_id and title and description and link and video_url:
-                product_data = {
-                    "product_id": product_id,
-                    "title": title,
-                    "desc": description,
-                    "link": link,
-                    "video_url": video_url
-                }
+    st.markdown('<div class="add-product-container">', unsafe_allow_html=True)
+    st.subheader("Add Product Data")
+    
+    product_id = st.text_input("Product ID")
+    title = st.text_input("Title")
+    description = st.text_area("Description")
+    link = st.text_input("Link")
+    video_url = st.text_input("Video URL")
+    
+    if st.button("Add Product"):
+        if product_id and title and description and link and video_url:
+            product_data = {
+                "product_id": product_id,
+                "title": title,
+                "desc": description,
+                "link": link,
+                "video_url": video_url
+            }
+            
+            with st.spinner("Processing product..."):
+                embeddings, error = generate_embedding(product_data)
                 
-                with st.spinner("Processing product..."):
-                    embeddings, error = generate_embedding(product_data)
+                if error:
+                    st.error(f"Error processing product: {error}")
+                else:
+                    insert_result = insert_embeddings(collection, embeddings)
                     
-                    if error:
-                        st.error(f"Error processing product: {error}")
+                    if insert_result:
+                        st.success("Product data added successfully!")
                     else:
-                        insert_result = insert_embeddings(collection, embeddings)
-                        
-                        if insert_result:
-                            st.success("Product data added successfully!")
-                        else:
-                            st.error("Failed to add product data.")
-            else:
-                st.warning("Please fill in all fields.")
+                        st.error("Failed to add product data.")
+        else:
+            st.warning("Please fill in all fields.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
 def main():
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
