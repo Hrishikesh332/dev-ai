@@ -84,12 +84,12 @@ st.markdown("""
     /* Add Product Data button */
     .add-product-btn {
         position: fixed;
-        top: 20px;
+        top: 40px;
         right: 20px;
         background-color: #4CAF50;
         border: none;
         color: white;
-        padding: 10px 20px;
+        padding: 10px 40px;
         text-align: center;
         text-decoration: none;
         display: inline-block;
