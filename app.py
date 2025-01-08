@@ -1,6 +1,6 @@
 import streamlit as st
 from dotenv import load_dotenv
-from utils import get_rag_response
+from utils import get_rag_response, generate_embedding, insert_embeddings, collection
 
 load_dotenv()
 
@@ -80,6 +80,26 @@ st.markdown("""
         margin: 1rem 0;
         border-radius: 2px;
     }
+        .add-product-btn {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #4CAF50;
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 4px;
+        z-index: 1000;
+    }
+    .add-product-btn:hover {
+        background-color: #45a049;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -114,6 +134,40 @@ def render_product_details(source):
         with col2:
             if source['video_url']:
                 st.video(source['video_url'])
+
+def add_product_data():
+    st.subheader("Add Product Data")
+    
+    product_id = st.text_input("Product ID")
+    title = st.text_input("Title")
+    description = st.text_area("Description")
+    link = st.text_input("Link")
+    video_url = st.text_input("Video URL")
+    
+    if st.button("Add Product"):
+        if product_id and title and description and link and video_url:
+            product_data = {
+                "product_id": product_id,
+                "title": title,
+                "desc": description,
+                "link": link,
+                "video_url": video_url
+            }
+            
+            with st.spinner("Processing product..."):
+                embeddings, error = generate_embedding(product_data)
+                
+                if error:
+                    st.error(f"Error processing product: {error}")
+                else:
+                    insert_result = insert_embeddings(collection, embeddings)
+                    
+                    if insert_result:
+                        st.success("Product data added successfully!")
+                    else:
+                        st.error("Failed to add product data.")
+        else:
+            st.warning("Please fill in all fields.")
 
 def main():
     st.markdown("""
