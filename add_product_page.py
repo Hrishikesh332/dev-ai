@@ -34,7 +34,9 @@ def add_product_data():
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("Add Product", key="add_product_btn", class_name="custom-btn"):
+        add_product_btn = st.markdown('<a href="#" class="custom-btn">Add Product</a>', unsafe_allow_html=True)
+        
+        if add_product_btn:
             if product_id and title and description and link and video_url:
                 product_data = {
                     "product_id": product_id,
