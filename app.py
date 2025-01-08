@@ -1,7 +1,7 @@
 import streamlit as st
 from dotenv import load_dotenv
 from utils import get_rag_response, generate_embedding, insert_embeddings, collection
-
+from add_product_page import main as add_product_main
 load_dotenv()
 
 st.markdown("""
@@ -181,7 +181,8 @@ def add_product_data():
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-def main():
+
+def chat_page():
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
             <h1 style="color: #FF4B6B; font-size: 3em; font-weight: 800;">🤵‍♂️ Fashion AI Assistant</h1>
@@ -225,7 +226,7 @@ def main():
         st.session_state.messages.append({"role": "assistant", "content": response_data})
     
     st.markdown("""
-        <button class="add-product-btn" onclick="document.querySelector('.add-product-container').classList.toggle('show')">
+        <button class="add-product-btn" onclick="window.location.href='?page=add_product'">
             + Product Data
         </button>
     """, unsafe_allow_html=True)
@@ -243,8 +244,14 @@ def main():
             </ul>
         </div>
         """, unsafe_allow_html=True)
-    
-    add_product_data()
+
+def main():
+    page = st.experimental_get_query_params().get("page", ["chat"])[0]
+
+    if page == "chat":
+        chat_page()
+    elif page == "add_product":
+        add_product_main()
 
 if __name__ == "__main__":
     main()
