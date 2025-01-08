@@ -80,7 +80,9 @@ st.markdown("""
         margin: 1rem 0;
         border-radius: 2px;
     }
-        .add-product-btn {
+    
+    /* Add Product Data button */
+    .add-product-btn {
         position: fixed;
         top: 20px;
         right: 20px;
@@ -211,7 +213,9 @@ def main():
                             st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         
         st.session_state.messages.append({"role": "assistant", "content": response_data})
-
+    
+    st.markdown('<button class="add-product-btn" onclick="window.location.href=\'#add-product-data\'">+ Product Data</button>', unsafe_allow_html=True)
+    
     with st.sidebar:
         st.markdown("""
         <div style="padding: 1.5rem; background-color: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
@@ -225,6 +229,8 @@ def main():
             </ul>
         </div>
         """, unsafe_allow_html=True)
+    
+    add_product_data()
 
 if __name__ == "__main__":
     main()
