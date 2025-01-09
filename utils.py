@@ -33,7 +33,7 @@ def generate_embedding(product_info):
         
         # Create embedding for the combined text
         embedding = twelvelabs_client.embed.create(
-            engine_name="Marengo-retrieval-2.6",
+            model_name="Marengo-retrieval-2.7",
             text=text
         ).text_embedding  # Get the embeddings_float attribute
         
