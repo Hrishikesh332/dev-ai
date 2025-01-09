@@ -1,5 +1,5 @@
 import streamlit as st
-from utils import generate_embedding, insert_embeddings, collection
+from utils import generate_embeddings, insert_embeddings
 
 def add_product_data():
     st.subheader("Add Product Data")
@@ -24,12 +24,12 @@ def add_product_data():
                 }
                 
                 with st.spinner("Processing product..."):
-                    embeddings, error = generate_embedding(product_data)
+                    embeddings, error = generate_embeddings(product_data)
                     
                     if error:
                         st.error(f"Error processing product: {error}")
                     else:
-                        insert_result = insert_embeddings(collection, embeddings)
+                        insert_result = insert_embeddings(embeddings, product_data)
                         
                         if insert_result:
                             st.success("Product data added successfully!")
@@ -39,8 +39,7 @@ def add_product_data():
                 st.warning("Please fill in all fields.")
     
     with col2:
-        if st.button("Back to Chat", type="secondary"):
-            st.switch_page("app.py")
+        st.markdown('<a href="/" class="nav-button">Back to Chat</a>', unsafe_allow_html=True)
 
 def main():
     st.title("Add Product Data")
