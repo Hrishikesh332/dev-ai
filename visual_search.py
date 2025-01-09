@@ -2,10 +2,14 @@ import streamlit as st
 from utils import search_similar_videos, create_video_embed
 
 def main():
+    st.title("Visual Search")
     st.subheader("Search Similar Product Clips")
+    
+    # Add back button at the top
+    if st.button("Back to Chat", type="secondary"):
+        st.switch_page("app.py")
+    
     with st.container():
-        st.markdown('<div class="content-section">', unsafe_allow_html=True)
-        
         col1, col2 = st.columns([1, 2])
         
         with col1:
@@ -29,7 +33,7 @@ def main():
                     help="Select the number of similar videos to retrieve"
                 )
                 
-                if st.button("Search", use_container_width=True):
+                if st.button("Search", type="primary", use_container_width=True):
                     with st.spinner("Searching for similar videos..."):
                         results = search_similar_videos(uploaded_file, top_k=top_k)
                         
@@ -39,48 +43,36 @@ def main():
                             st.subheader("Results")
                             for idx, result in enumerate(results, 1):
                                 with st.expander(f"Match #{idx} - Similarity: {result['Similarity']}", expanded=(idx==1)):
-                                
-                                    start_time = float(result['Start Time'].replace('s', ''))
-                                    end_time = float(result['End Time'].replace('s', ''))
-                                    
                                     video_col, details_col = st.columns([2, 1])
                                     
                                     with video_col:
                                         st.markdown("#### Video Segment")
-                                    
                                         video_embed = create_video_embed(
                                             result['Video URL'],
-                                            start_time,
-                                            end_time
+                                            float(result['Start Time'].replace('s', '')),
+                                            float(result['End Time'].replace('s', ''))
                                         )
                                         st.markdown(video_embed, unsafe_allow_html=True)
                                     
                                     with details_col:
-                                        st.markdown("#### Details")
-                                        
                                         st.markdown(f"""
-                                            📝 **Title**
+                                            #### Details
+                                            
+                                            📝 **Title**  
                                             {result['Title']}
                                             
-                                            📖 **Description**
+                                            📖 **Description**  
                                             {result['Description']}
                                             
-                                            🔗 **Link**
+                                            🔗 **Link**  
                                             [Open Product]({result['Link']})
                                             
-                                            🕒 **Time Range** 
+                                            🕒 **Time Range**  
                                             {result['Start Time']} - {result['End Time']}
                                             
-                                            🎥 **Video URL** 
-                                            [Watch Video]({result['Video URL']})
-                                            
-                                            📊 **Similarity Score**
+                                            📊 **Similarity Score**  
                                             {result['Similarity']}
                                         """)
-                                        if st.button("📋 Copy URL", key=f"copy_{idx}"):
-                                            st.code(result['Video URL'])
-        
-        st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
