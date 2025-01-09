@@ -23,32 +23,78 @@ collection.load()
 def generate_embedding(product_info):
     """Generate both text and video embeddings for a product"""
     try:
+        st.write("Starting embedding generation process...")
         st.write(f"Processing product: {product_info['title']}")
         
+        # Log input data structure
+        st.write("Input data structure:")
+        st.write({
+            "title": product_info['title'],
+            "description": product_info['desc'][:100] + "...",  # Truncate for logging
+            "video_url": product_info['video_url']
+        })
+        
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
+        st.write("TwelveLabs client initialized successfully")
         
         # Generate text embedding
+        st.write("Attempting to generate text embedding...")
         text = f"{product_info['title']} {product_info['desc']}"
-        text_embedding = twelvelabs_client.embed.create(
-            model_name="Marengo-retrieval-2.7",
-            text=text
-        ).text_embedding.segments[0].embeddings_float
+        st.write(f"Combined text length: {len(text)} characters")
+        
+        try:
+            text_embedding_response = twelvelabs_client.embed.create(
+                model_name="Marengo-retrieval-2.7",
+                text=text
+            )
+            st.write("Text embedding API call successful")
+            text_embedding = text_embedding_response.text_embedding.segments[0].embeddings_float
+            st.write(f"Text embedding generated successfully. Vector length: {len(text_embedding)}")
+        except Exception as text_error:
+            st.error(f"Error in text embedding generation: {str(text_error)}")
+            st.write(f"Full text embedding error: {text_error.__class__.__name__}: {str(text_error)}")
+            raise
         
         # Generate video embedding
-        video_embedding = twelvelabs_client.embed.create(
-            model_name="Marengo-retrieval-2.7",
-            video_url=product_info['video_url']
-        ).video_embedding.segments[0].embeddings_float
+        st.write("Attempting to generate video embedding...")
+        st.write(f"Video URL: {product_info['video_url']}")
         
+        try:
+            video_embedding_response = twelvelabs_client.embed.create(
+                model_name="Marengo-retrieval-2.7",
+                video_url=product_info['video_url']
+            )
+            st.write("Video embedding API call successful")
+            video_embedding = video_embedding_response.video_embedding.segments[0].embeddings_float
+            st.write(f"Video embedding generated successfully. Vector length: {len(video_embedding)}")
+        except Exception as video_error:
+            st.error(f"Error in video embedding generation: {str(video_error)}")
+            st.write(f"Full video embedding error: {video_error.__class__.__name__}: {str(video_error)}")
+            raise
+        
+        st.write("Both embeddings generated successfully")
         return {
             'text_embedding': text_embedding,
             'video_embedding': video_embedding
         }, None
     except Exception as e:
+        st.error("Final error in embedding generation")
+        st.error(f"Error type: {e.__class__.__name__}")
+        st.error(f"Error message: {str(e)}")
+        st.error(f"Full error details: {repr(e)}")
         return None, str(e)
+
+
 def insert_embeddings(embeddings_data, product_info):
     """Insert both text and video embeddings into the same collection"""
     try:
+        st.write("Starting embedding insertion process...")
+        
+        # Log the incoming data structure
+        st.write("Embedding data structure check:")
+        st.write(f"Text embedding vector length: {len(embeddings_data['text_embedding'])}")
+        st.write(f"Video embedding vector length: {len(embeddings_data['video_embedding'])}")
+        
         # Create metadata dictionary
         metadata = {
             "product_id": product_info['product_id'],
@@ -57,6 +103,7 @@ def insert_embeddings(embeddings_data, product_info):
             "video_url": product_info['video_url'],
             "link": product_info['link']
         }
+        st.write("Metadata prepared successfully")
         
         # Insert text embedding
         text_entry = {
@@ -65,6 +112,9 @@ def insert_embeddings(embeddings_data, product_info):
             "metadata": metadata,
             "embedding_type": "text"
         }
+        st.write("Attempting to insert text embedding...")
+        collection.insert([text_entry])
+        st.write("Text embedding inserted successfully")
         
         # Insert video embedding
         video_entry = {
@@ -73,14 +123,17 @@ def insert_embeddings(embeddings_data, product_info):
             "metadata": metadata,
             "embedding_type": "video"
         }
-        
-        # Insert both entries
-        collection.insert([text_entry])
+        st.write("Attempting to insert video embedding...")
         collection.insert([video_entry])
+        st.write("Video embedding inserted successfully")
         
+        st.write("All embeddings inserted successfully")
         return True
     except Exception as e:
-        st.error(f"Error inserting embeddings: {str(e)}")
+        st.error("Error in embedding insertion process")
+        st.error(f"Error type: {e.__class__.__name__}")
+        st.error(f"Error message: {str(e)}")
+        st.error(f"Full error details: {repr(e)}")
         return False
 
 def search_similar_videos(image_file, top_k=5):
