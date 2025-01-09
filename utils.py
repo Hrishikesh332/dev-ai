@@ -46,11 +46,11 @@ def generate_embedding(product_info):
         }, None
     except Exception as e:
         return None, str(e)
-
 def insert_embeddings(embeddings_data, product_info):
     """Insert both text and video embeddings into the same collection"""
     try:
-        base_metadata = {
+        # Create metadata dictionary
+        metadata = {
             "product_id": product_info['product_id'],
             "title": product_info['title'],
             "description": product_info['desc'],
@@ -59,29 +59,29 @@ def insert_embeddings(embeddings_data, product_info):
         }
         
         # Insert text embedding
-        text_data = [{
+        text_entry = {
             "id": int(uuid.uuid4().int & (1<<63)-1),
             "vector": embeddings_data['text_embedding'],
-            "embedding_type": "text",  # Add type identifier
-            **base_metadata
-        }]
+            "metadata": metadata,
+            "embedding_type": "text"
+        }
         
         # Insert video embedding
-        video_data = [{
+        video_entry = {
             "id": int(uuid.uuid4().int & (1<<63)-1),
             "vector": embeddings_data['video_embedding'],
-            "embedding_type": "video",  # Add type identifier
-            **base_metadata
-        }]
+            "metadata": metadata,
+            "embedding_type": "video"
+        }
         
-        # Insert both embeddings
-        insert_result_text = collection.insert(text_data)
-        insert_result_video = collection.insert(video_data)
+        # Insert both entries
+        collection.insert([text_entry])
+        collection.insert([video_entry])
         
-        return insert_result_text and insert_result_video
+        return True
     except Exception as e:
         st.error(f"Error inserting embeddings: {str(e)}")
-        return None
+        return False
 
 def search_similar_videos(image_file, top_k=5):
     """Search for similar videos using image query"""
