@@ -1,14 +1,16 @@
 import os
-import streamlit as st       
-from dotenv import load_dotenv
 import uuid
-load_dotenv()
+from dotenv import load_dotenv
 from twelvelabs import TwelveLabs
-from pymilvus import connections, Collection
+from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType
+import streamlit as st
 from openai import OpenAI
 
+load_dotenv()
+
 # Load environment variables
-COLLECTION_NAME = os.getenv('COLLECTION_NAME')
+TEXT_COLLECTION_NAME = os.getenv('TEXT_COLLECTION_NAME', 'fashion_text_embeddings')
+VIDEO_COLLECTION_NAME = os.getenv('VIDEO_COLLECTION_NAME', 'fashion_video_embeddings')
 URL = os.getenv('URL')
 TOKEN = os.getenv('TOKEN')
 TWELVELABS_API_KEY = os.getenv('TWELVELABS_API_KEY')
@@ -16,115 +18,200 @@ TWELVELABS_API_KEY = os.getenv('TWELVELABS_API_KEY')
 # Initialize connections
 openai_client = OpenAI()
 connections.connect(uri=URL, token=TOKEN)
-collection = Collection(COLLECTION_NAME)
-collection.load()
 
+def create_text_collection():
+    """Create collection for text embeddings if it doesn't exist"""
+    fields = [
+        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True),
+        FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=384),
+        FieldSchema(name="product_id", dtype=DataType.VARCHAR, max_length=100),
+        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=200),
+        FieldSchema(name="description", dtype=DataType.VARCHAR, max_length=2000),
+        FieldSchema(name="video_url", dtype=DataType.VARCHAR, max_length=500),
+        FieldSchema(name="link", dtype=DataType.VARCHAR, max_length=500)
+    ]
+    schema = CollectionSchema(fields=fields, description="Text embeddings for fashion products")
+    text_collection = Collection(TEXT_COLLECTION_NAME, schema)
+    
+    # Create index if it doesn't exist
+    index_params = {
+        "metric_type": "COSINE",
+        "index_type": "IVF_FLAT",
+        "params": {"nlist": 1024}
+    }
+    text_collection.create_index(field_name="vector", index_params=index_params)
+    return text_collection
 
+def create_video_collection():
+    """Create collection for video embeddings if it doesn't exist"""
+    fields = [
+        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True),
+        FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=384),
+        FieldSchema(name="product_id", dtype=DataType.VARCHAR, max_length=100),
+        FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=200),
+        FieldSchema(name="description", dtype=DataType.VARCHAR, max_length=2000),
+        FieldSchema(name="video_url", dtype=DataType.VARCHAR, max_length=500),
+        FieldSchema(name="link", dtype=DataType.VARCHAR, max_length=500),
+        FieldSchema(name="start_time", dtype=DataType.DOUBLE),
+        FieldSchema(name="end_time", dtype=DataType.DOUBLE)
+    ]
+    schema = CollectionSchema(fields=fields, description="Video embeddings for fashion products")
+    video_collection = Collection(VIDEO_COLLECTION_NAME, schema)
+    
+    # Create index if it doesn't exist
+    index_params = {
+        "metric_type": "COSINE",
+        "index_type": "IVF_FLAT",
+        "params": {"nlist": 1024}
+    }
+    video_collection.create_index(field_name="vector", index_params=index_params)
+    return video_collection
 
-def generate_embedding(product_info):
-    """Generate embeddings for a single product"""
+# Initialize collections
+text_collection = create_text_collection()
+video_collection = create_video_collection()
+
+def generate_embeddings(product_info):
+    """Generate both text and video embeddings for a product"""
     try:
-        st.write(f"Processing product: {product_info['title']}")
-        
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         
-        # Combine title and description
+        # Generate text embedding
         text = f"{product_info['title']} {product_info['desc']}"
-        
-        # Create embedding for the combined text
-        embedding = twelvelabs_client.embed.create(
-            model_name="Marengo-retrieval-2.7",
+        text_embedding = twelvelabs_client.embed.create(
+            engine_name="Marengo-retrieval-2.6",
             text=text
-        ).text_embedding  # Get the embeddings_float attribute
+        ).text_embedding.segments[0].embeddings_float
         
-        embeddings = [{
-            'embedding': embedding.segments[0].embeddings_float,
-            'video_url': product_info['video_url'],
-            'product_id': product_info['product_id'],
-            'title': product_info['title'],
-            'description': product_info['desc'],
-            'link': product_info['link']
-        }]
+        # Generate video embedding
+        video_embedding = twelvelabs_client.embed.create(
+            engine_name="Marengo-retrieval-2.6",
+            video_url=product_info['video_url']
+        ).video_embedding.segments[0].embeddings_float
         
-        return embeddings, None
+        return {
+            'text_embedding': text_embedding,
+            'video_embedding': video_embedding
+        }, None
     except Exception as e:
         return None, str(e)
 
-def insert_embeddings(collection, embeddings):
-    """Insert embeddings into Milvus collection"""
+def insert_embeddings(embeddings_data, product_info):
+    """Insert both text and video embeddings with their respective metadata"""
     try:
-        data = [{
-            "id": int(uuid.uuid4().int & (1<<63)-1),  # Generate unique ID
-            "vector": embeddings[0]['embedding'],
-            "metadata": {
-                "video_url": embeddings[0]['video_url'],
-                "product_id": embeddings[0]['product_id'],
-                "title": embeddings[0]['title'],
-                "description": embeddings[0]['description'],
-                "link": embeddings[0]['link']
-            }
-        }]
+        # Common metadata fields
+        base_metadata = {
+            "product_id": product_info['product_id'],
+            "title": product_info['title'],
+            "description": product_info['desc'],
+            "video_url": product_info['video_url'],
+            "link": product_info['link']
+        }
         
-        insert_result = collection.insert(data)
-        return insert_result
+        # Insert text embedding
+        text_data = [{
+            "id": int(uuid.uuid4().int & (1<<63)-1),
+            "vector": embeddings_data['text_embedding'],
+            **base_metadata
+        }]
+        text_collection.insert(text_data)
+        
+        # Insert video embedding
+        video_data = [{
+            "id": int(uuid.uuid4().int & (1<<63)-1),
+            "vector": embeddings_data['video_embedding'],
+            **base_metadata,
+            "start_time": 0.0,  # Add default start time
+            "end_time": 0.0     # Add default end time
+        }]
+        video_collection.insert(video_data)
+        
+        return True
     except Exception as e:
         st.error(f"Error inserting embeddings: {str(e)}")
-        return None
-        
+        return False
 
-def emb_text(text):
+def search_text_embeddings(query_text, limit=2):
+    """Search text embeddings collection"""
     try:
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
-        embedding = twelvelabs_client.embed.create(
-            model_name="Marengo-retrieval-2.7",
-            text=text
-        ).text_embedding
-        return embedding.segments[0].embeddings_float
-    except Exception as e:
-        raise e
-
-def get_rag_response(question):
-    try:
-        question_embedding = emb_text(question)
+        query_embedding = twelvelabs_client.embed.create(
+            engine_name="Marengo-retrieval-2.6",
+            text=query_text
+        ).text_embedding.segments[0].embeddings_float
+        
         search_params = {
             "metric_type": "COSINE",
             "params": {"nprobe": 10},
         }
         
-        results = collection.search(
-            data=[question_embedding],
+        results = text_collection.search(
+            data=[query_embedding],
             anns_field="vector",
             param=search_params,
-            limit=2,
-            output_fields=['metadata']
+            limit=limit,
+            output_fields=['product_id', 'title', 'description', 'video_url', 'link']
         )
+        
+        return results
+    except Exception as e:
+        st.error(f"Error searching text embeddings: {str(e)}")
+        return None
 
-        retrieved_docs = []
-        for hit in results[0]:
-            try:
-                metadata = hit.entity.metadata
-                if metadata:
-                    similarity = round((hit.score + 1) * 50, 2)  # Convert from [-1,1] to [0,100]
-                    similarity = max(0, min(100, similarity))
-                    
-                    retrieved_docs.append({
-                        "title": metadata.get("title", "Untitled"),
-                        "description": metadata.get("description", "No description available"),
-                        "product_id": metadata.get("product_id", ""),
-                        "video_url": metadata.get("video_url", ""),
-                        "link": metadata.get("link", ""),
-                        "similarity": similarity,
-                    })
-            except Exception as e:
-                continue
+def search_video_embeddings(image_file, limit=5):
+    """Search video embeddings collection using image query"""
+    try:
+        twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
+        image_embedding = twelvelabs_client.embed.create(
+            engine_name="Marengo-retrieval-2.6",
+            image_file=image_file
+        ).image_embedding.segments[0].embeddings_float
+        
+        search_params = {
+            "metric_type": "COSINE",
+            "params": {"nprobe": 10},
+        }
+        
+        results = video_collection.search(
+            data=[image_embedding],
+            anns_field="vector",
+            param=search_params,
+            limit=limit,
+            output_fields=['product_id', 'title', 'description', 'video_url', 'link', 'start_time', 'end_time']
+        )
+        
+        return results
+    except Exception as e:
+        st.error(f"Error searching video embeddings: {str(e)}")
+        return None
 
-        if not retrieved_docs:
+def get_rag_response(question):
+    """Get response using text embeddings search"""
+    try:
+        results = search_text_embeddings(question)
+        if not results:
             return {
                 "response": "I couldn't find any matching products. Try describing what you're looking for differently.",
                 "metadata": None
             }
 
-        context = "\n\n".join([f"Title: {doc['title']}\nDescription: {doc['description']}" for doc in retrieved_docs])
+        retrieved_docs = []
+        for hit in results[0]:
+            similarity = round((hit.score + 1) * 50, 2)
+            similarity = max(0, min(100, similarity))
+            
+            retrieved_docs.append({
+                "title": hit.entity.get('title', 'Untitled'),
+                "description": hit.entity.get('description', 'No description available'),
+                "product_id": hit.entity.get('product_id', ''),
+                "video_url": hit.entity.get('video_url', ''),
+                "link": hit.entity.get('link', ''),
+                "similarity": similarity,
+            })
+
+        context = "\n\n".join([f"Title: {doc['title']}\nDescription: {doc['description']}" 
+                              for doc in retrieved_docs])
+        
         messages = [
             {
                 "role": "system",
@@ -150,46 +237,11 @@ def get_rag_response(question):
                 "total_sources": len(retrieved_docs)
             }
         }
-    
     except Exception as e:
         return {
-            "response": "I encountered an error while processing your request.",
+            "response": f"I encountered an error while processing your request: {str(e)}",
             "metadata": None
         }
-
-
-def search_similar_videos(image, top_k=5):
-    twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
-
-    features = image_embedding(
-    twelvelabs_client=twelvelabs_client,
-    image_file=image
-   )
-
-    results = collection.search(
-        data=[features],
-        anns_field="vector",
-        param={"metric_type": "COSINE", "params": {"nprobe": 10}},
-        limit=top_k,
-        output_fields=["metadata"]
-    )
-    
-    search_results = []
-    for hits in results:
-        for hit in hits:
-            metadata = hit.entity.get('metadata')
-            if metadata:
-                search_results.append({
-                    'Title': metadata['title'],
-                    'Description': metadata['description'],
-                    'Link': metadata['link'],
-                    'Start Time': f"{metadata['start_time']:.1f}s",
-                    'End Time': f"{metadata['end_time']:.1f}s",
-                    'Video URL': metadata['video_url'],
-                    'Similarity': f"{(1 - float(hit.distance)) * 100:.2f}%"
-                })
-    
-    return search_results
 
 def create_video_embed(video_url, start_time, end_time):
     video_id, platform = get_video_id_from_url(video_url)
