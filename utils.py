@@ -224,31 +224,5 @@ def create_video_embed(video_url, start_time, end_time):
             </script>
         """
     else:
-        return f"<p>Unable to embed video from URL: {video_url}</p>"def generate_embedding(product_info):
-    """Generate embeddings for a single product"""
-    try:
-        st.write(f"Processing product: {product_info['title']}")
-        
-        twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
-        
-        # Combine title and description
-        text = f"{product_info['title']} {product_info['desc']}"
-        
-        # Create embedding for the combined text
-        embedding = twelvelabs_client.embed.create(
-            engine_name="Marengo-retrieval-2.6",
-            text=text
-        ).text_embedding  # Get the embeddings_float attribute
-        
-        embeddings = [{
-            'embedding': embedding.segments[0].embeddings_float,
-            'video_url': product_info['video_url'],
-            'product_id': product_info['product_id'],
-            'title': product_info['title'],
-            'description': product_info['desc'],
-            'link': product_info['link']
-        }]
-        
-        return embeddings, None
-    except Exception as e:
-        return None, str(e)
+        return f"<p>Unable to embed video from URL: {video_url}</p>"
+  
