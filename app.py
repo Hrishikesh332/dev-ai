@@ -2,6 +2,8 @@ import streamlit as st
 from dotenv import load_dotenv
 from utils import get_rag_response, generate_embedding, insert_embeddings, collection
 from add_product_page import main as add_product_main
+from visual_search import main as visual_search_main
+
 load_dotenv()
 
 st.markdown("""
@@ -102,6 +104,23 @@ st.markdown("""
     .add-product-btn:hover {
         background-color: #45a049;
     }
+        /* Media upload button */
+    .media-upload-btn {
+        background-color: #f0f0f0;
+        border: none;
+        color: #333;
+        padding: 8px 16px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 14px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+    .media-upload-btn:hover {
+        background-color: #e0e0e0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,6 +195,7 @@ def add_product_data():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+
 def chat_page():
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
@@ -202,10 +222,29 @@ def chat_page():
                 else:
                     st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask about fashion products..."):
+    col1, col2 = st.columns([9, 1])
+    
+    with col1:
+        prompt = st.chat_input("Ask about fashion products...")
+    
+    with col2:
+        media_file = st.file_uploader("", type=["jpg", "jpeg", "png"], label_visibility="collapsed", 
+                                      accept_multiple_files=False, key="media_uploader")
+        st.markdown('<label for="media_uploader" class="media-upload-btn">+</label>', unsafe_allow_html=True)
+    
+    if prompt or media_file:
         with st.chat_message("user", avatar="👤"):
-            st.markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+            if prompt:
+                st.markdown(prompt)
+            if media_file:
+                st.image(media_file)
+        
+        user_message = {"role": "user", "content": prompt}
+        
+        if media_file:
+            user_message["media_file"] = media_file
+        
+        st.session_state.messages.append(user_message)
 
         with st.chat_message("assistant", avatar="🤵‍♂️"):
             with st.spinner("Finding perfect matches..."):
@@ -220,8 +259,11 @@ def chat_page():
         st.session_state.messages.append({"role": "assistant", "content": response_data})
     
     st.markdown("""
-        <a class="add-product-btn" href="/?page=add_product">
+        <a class="add-product-btn" href="/?page=add_product" style="right: 200px;">
             + Product Data
+        </a>
+        <a class="add-product-btn" href="/?page=visual_search" style="right: 20px;">
+            Visual Search
         </a>
     """, unsafe_allow_html=True)
     
@@ -247,6 +289,8 @@ def main():
         chat_page()
     elif page == "add_product":
         add_product_main()
+    elif page == "visual_search":
+        visual_search_main()
 
 if __name__ == "__main__":
     main()
