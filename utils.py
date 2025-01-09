@@ -156,3 +156,99 @@ def get_rag_response(question):
             "response": "I encountered an error while processing your request.",
             "metadata": None
         }
+
+
+def search_similar_videos(image, top_k=5):
+    twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
+
+    features = image_embedding(
+    twelvelabs_client=twelvelabs_client,
+    image_file=image
+   )
+
+    results = collection.search(
+        data=[features],
+        anns_field="vector",
+        param={"metric_type": "COSINE", "params": {"nprobe": 10}},
+        limit=top_k,
+        output_fields=["metadata"]
+    )
+    
+    search_results = []
+    for hits in results:
+        for hit in hits:
+            metadata = hit.entity.get('metadata')
+            if metadata:
+                search_results.append({
+                    'Title': metadata['title'],
+                    'Description': metadata['description'],
+                    'Link': metadata['link'],
+                    'Start Time': f"{metadata['start_time']:.1f}s",
+                    'End Time': f"{metadata['end_time']:.1f}s",
+                    'Video URL': metadata['video_url'],
+                    'Similarity': f"{(1 - float(hit.distance)) * 100:.2f}%"
+                })
+    
+    return search_results
+
+def create_video_embed(video_url, start_time, end_time):
+    video_id, platform = get_video_id_from_url(video_url)
+    start_seconds = format_time_for_url(start_time)
+    
+    if platform == 'vimeo':
+        return f"""
+            <iframe 
+                width="100%" 
+                height="315" 
+                src="https://player.vimeo.com/video/{video_id}#t={start_seconds}s"
+                frameborder="0" 
+                allow="autoplay; fullscreen; picture-in-picture" 
+                allowfullscreen>
+            </iframe>
+        """
+    elif platform == 'direct':
+        return f"""
+            <video 
+                width="100%" 
+                height="315" 
+                controls 
+                autoplay
+                id="video-player">
+                <source src="{video_url}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            <script>
+                document.getElementById('video-player').addEventListener('loadedmetadata', function() {{
+                    this.currentTime = {start_time};
+                }});
+            </script>
+        """
+    else:
+        return f"<p>Unable to embed video from URL: {video_url}</p>"def generate_embedding(product_info):
+    """Generate embeddings for a single product"""
+    try:
+        st.write(f"Processing product: {product_info['title']}")
+        
+        twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
+        
+        # Combine title and description
+        text = f"{product_info['title']} {product_info['desc']}"
+        
+        # Create embedding for the combined text
+        embedding = twelvelabs_client.embed.create(
+            engine_name="Marengo-retrieval-2.6",
+            text=text
+        ).text_embedding  # Get the embeddings_float attribute
+        
+        embeddings = [{
+            'embedding': embedding.segments[0].embeddings_float,
+            'video_url': product_info['video_url'],
+            'product_id': product_info['product_id'],
+            'title': product_info['title'],
+            'description': product_info['desc'],
+            'link': product_info['link']
+        }]
+        
+        return embeddings, None
+    except Exception as e:
+        return None, str(e)
