@@ -29,7 +29,7 @@ def generate_embedding(product_info):
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         st.write("TwelveLabs client initialized successfully")
         
-        # Generate text embedding - using the previously working approach
+        # Generate text embedding
         st.write("Attempting to generate text embedding...")
         text = f"{product_info['title']} {product_info['desc']}"
         st.write(f"Combined text length: {len(text)} characters")
@@ -40,21 +40,40 @@ def generate_embedding(product_info):
         ).text_embedding.segments[0].embeddings_float
         st.write("Text embedding generated successfully")
         
-        # Generate video embedding with modified parameters
+        # Generate video embedding - using the async task approach
         st.write("Attempting to generate video embedding...")
         st.write(f"Video URL: {product_info['video_url']}")
         
-        video_embedding = twelvelabs_client.embed.create(
+        # Step 1: Create video embedding task
+        video_task = twelvelabs_client.embed.task.create(
             model_name="Marengo-retrieval-2.7",
-            data=[{"video_url": product_info['video_url']}]
-        ).video_embedding.segments[0].embeddings_float
-        st.write("Video embedding generated successfully")
+            video_url=product_info['video_url']
+        )
+        st.write(f"Video task created with ID: {video_task.id}")
         
-        return {
-            'text_embedding': text_embedding,
-            'video_embedding': video_embedding
-        }, None
+        # Step 2: Monitor task status
+        def on_task_update(task):
+            st.write(f"Video processing status: {task.status}")
         
+        st.write("Waiting for video processing to complete...")
+        video_task.wait_for_done(
+            sleep_interval=2,
+            callback=on_task_update
+        )
+        
+        # Step 3: Retrieve video embeddings
+        video_task = video_task.retrieve()
+        if video_task.video_embedding and video_task.video_embedding.segments:
+            video_embedding = video_task.video_embedding.segments[0].embeddings_float
+            st.write("Video embedding generated successfully")
+            
+            return {
+                'text_embedding': text_embedding,
+                'video_embedding': video_embedding
+            }, None
+        else:
+            raise Exception("Failed to retrieve video embeddings")
+            
     except Exception as e:
         st.error("Error in embedding generation")
         st.error(f"Error message: {str(e)}")
