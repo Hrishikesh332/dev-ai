@@ -134,15 +134,18 @@ def insert_embeddings(embeddings_data, product_info):
 def search_similar_videos(image_file, top_k=5):
     """Search for similar videos using image query"""
     try:
+        st.write("Initializing visual search...")
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         
         # Generate image embedding
+        st.write("Generating image embedding...")
         image_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
             image_file=image_file
         ).image_embedding.segments[0].embeddings_float
         
         # Search in collection for video embeddings
+        st.write("Searching for similar videos...")
         search_params = {
             "metric_type": "COSINE",
             "params": {"nprobe": 10}
@@ -153,27 +156,30 @@ def search_similar_videos(image_file, top_k=5):
             anns_field="vector",
             param=search_params,
             limit=top_k,
-            expr="embedding_type == 'video'",  # Filter for video embeddings
+            expr="embedding_type == 'video'",
             output_fields=["metadata"]
         )
 
         search_results = []
         for hits in results:
             for hit in hits:
-                metadata = hit.entity.get('metadata', {})
-                if metadata:
-                    similarity_score = round((1 - float(hit.distance)) * 100, 2)
-                    search_results.append({
-                        'Title': metadata.get('title', ''),
-                        'Description': metadata.get('description', ''),
-                        'Link': metadata.get('link', ''),
-                        'Video URL': metadata.get('video_url', ''),
-                        'Similarity': f"{similarity_score}%"
-                    })
+                metadata = hit.metadata  # Corrected metadata access
+                similarity_score = round((1 - float(hit.distance)) * 100, 2)
+                
+                search_results.append({
+                    'Title': metadata.get('title', ''),
+                    'Description': metadata.get('description', ''),
+                    'Link': metadata.get('link', ''),
+                    'Video URL': metadata.get('video_url', ''),
+                    'Similarity': f"{similarity_score}%"
+                })
         
+        st.write(f"Found {len(search_results)} matching results")
         return search_results
+        
     except Exception as e:
-        st.error(f"Error searching videos: {str(e)}")
+        st.error(f"Error in visual search: {str(e)}")
+        st.error(f"Detailed error: {repr(e)}")
         return None
 
 def get_rag_response(question):
