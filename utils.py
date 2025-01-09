@@ -253,38 +253,65 @@ def get_rag_response(question):
             "metadata": None
         }
 
-def create_video_embed(video_url, start_time, end_time):
-    """Create video embed HTML (implementation remains the same)"""
-    video_id, platform = get_video_id_from_url(video_url)
-    start_seconds = format_time_for_url(start_time)
-    
-    if platform == 'vimeo':
-        return f"""
-            <iframe 
-                width="100%" 
-                height="315" 
-                src="https://player.vimeo.com/video/{video_id}#t={start_seconds}s"
-                frameborder="0" 
-                allow="autoplay; fullscreen; picture-in-picture" 
-                allowfullscreen>
-            </iframe>
-        """
-    elif platform == 'direct':
-        return f"""
-            <video 
-                width="100%" 
-                height="315" 
-                controls 
-                autoplay
-                id="video-player">
-                <source src="{video_url}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-            <script>
-                document.getElementById('video-player').addEventListener('loadedmetadata', function() {{
-                    this.currentTime = {start_time};
-                }});
-            </script>
-        """
-    else:
-        return f"<p>Unable to embed video from URL: {video_url}</p>"
+def get_video_id_from_url(video_url):
+    """Extract video ID and platform from URL"""
+    try:
+        if 'vimeo.com' in video_url:
+            video_id = video_url.split('/')[-1].split('?')[0]
+            return video_id, 'vimeo'
+        else:
+            return video_url, 'direct'
+    except Exception as e:
+        st.error(f"Error processing video URL: {str(e)}")
+        return None, None
+
+def format_time_for_url(time_in_seconds):
+    """Format time in seconds to URL compatible format"""
+    try:
+        return str(int(float(time_in_seconds)))
+    except:
+        return "0"
+
+def create_video_embed(video_url, start_time=0, end_time=0):
+    """Create video embed HTML"""
+    try:
+        video_id, platform = get_video_id_from_url(video_url)
+        start_seconds = format_time_for_url(start_time)
+        
+        if not video_id:
+            return f"<p>Unable to process video URL: {video_url}</p>"
+        
+        if platform == 'vimeo':
+            return f"""
+                <iframe 
+                    width="100%" 
+                    height="315" 
+                    src="https://player.vimeo.com/video/{video_id}#t={start_seconds}s"
+                    frameborder="0" 
+                    allow="autoplay; fullscreen; picture-in-picture" 
+                    allowfullscreen>
+                </iframe>
+            """
+        elif platform == 'direct':
+            return f"""
+                <video 
+                    width="100%" 
+                    height="315" 
+                    controls 
+                    autoplay
+                    id="video-player">
+                    <source src="{video_url}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <script>
+                    document.getElementById('video-player').addEventListener('loadedmetadata', function() {{
+                        this.currentTime = {start_time};
+                    }});
+                </script>
+            """
+        else:
+            return f"<p>Unsupported video platform for URL: {video_url}</p>"
+            
+    except Exception as e:
+        st.error(f"Error creating video embed: {str(e)}")
+        return f"<p>Error creating video embed for URL: {video_url}</p>"
