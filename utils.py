@@ -26,14 +26,6 @@ def generate_embedding(product_info):
         st.write("Starting embedding generation process...")
         st.write(f"Processing product: {product_info['title']}")
         
-        # Log input data structure
-        st.write("Input data structure:")
-        st.write({
-            "title": product_info['title'],
-            "description": product_info['desc'][:100] + "...",
-            "video_url": product_info['video_url']
-        })
-        
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         st.write("TwelveLabs client initialized successfully")
         
@@ -43,16 +35,16 @@ def generate_embedding(product_info):
         st.write(f"Combined text length: {len(text)} characters")
         
         try:
-            text_embedding_response = twelvelabs_client.embed.create(
-                model_name="Marengo-retrieval-2.7",
-                data=[{"text": text}]
-            )
+            text_request = {
+                "model_name": "Marengo-retrieval-2.7",
+                "text": text
+            }
+            text_embedding_response = twelvelabs_client.embed.text(**text_request)
             st.write("Text embedding API call successful")
-            text_embedding = text_embedding_response.text_embedding.segments[0].embeddings_float
+            text_embedding = text_embedding_response.segments[0].embeddings_float
             st.write(f"Text embedding generated successfully. Vector length: {len(text_embedding)}")
         except Exception as text_error:
             st.error(f"Error in text embedding generation: {str(text_error)}")
-            st.write(f"Full text embedding error: {text_error.__class__.__name__}: {str(text_error)}")
             raise
         
         # Generate video embedding
@@ -60,16 +52,16 @@ def generate_embedding(product_info):
         st.write(f"Video URL: {product_info['video_url']}")
         
         try:
-            video_embedding_response = twelvelabs_client.embed.create(
-                model_name="Marengo-retrieval-2.7",
-                data=[{"video_url": product_info['video_url']}]
-            )
+            video_request = {
+                "model_name": "Marengo-retrieval-2.7",
+                "url": product_info['video_url']
+            }
+            video_embedding_response = twelvelabs_client.embed.video(**video_request)
             st.write("Video embedding API call successful")
-            video_embedding = video_embedding_response.video_embedding.segments[0].embeddings_float
+            video_embedding = video_embedding_response.segments[0].embeddings_float
             st.write(f"Video embedding generated successfully. Vector length: {len(video_embedding)}")
         except Exception as video_error:
             st.error(f"Error in video embedding generation: {str(video_error)}")
-            st.write(f"Full video embedding error: {video_error.__class__.__name__}: {str(video_error)}")
             raise
         
         st.write("Both embeddings generated successfully")
@@ -79,9 +71,7 @@ def generate_embedding(product_info):
         }, None
     except Exception as e:
         st.error("Final error in embedding generation")
-        st.error(f"Error type: {e.__class__.__name__}")
         st.error(f"Error message: {str(e)}")
-        st.error(f"Full error details: {repr(e)}")
         return None, str(e)
 
 
