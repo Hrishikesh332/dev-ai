@@ -99,16 +99,12 @@ def chat_page():
     """, unsafe_allow_html=True)
     
     # Navigation buttons
-    with st.container():
-        st.markdown('<div class="nav-container">', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("+ Product Data", key="add_product", type="primary"):
-                st.switch_page("add_product_page.py")
-        with col2:
-            if st.button("Visual Search", key="visual_search", type="primary"):
-                st.switch_page("visual_search.py")
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+        <div class="nav-container">
+            <a href="?add_product_page" class="nav-button">+ Product Data</a>
+            <a href="?visual_search" class="nav-button">Visual Search</a>
+        </div>
+    """, unsafe_allow_html=True)
 
     chat_container = st.container()
     
@@ -174,9 +170,6 @@ def main():
         add_product_main()
     elif page == "visual_search":
         visual_search_main()
-
-if __name__ == "__main__":
-    main()
 
 if __name__ == "__main__":
     main()
