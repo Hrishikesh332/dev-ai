@@ -104,10 +104,10 @@ def chat_page():
         col1, col2 = st.columns(2)
         with col1:
             if st.button("+ Product Data", key="add_product", type="primary"):
-                st.switch_page("pages/add_product_page.py")
+                st.switch_page("add_product_page.py")
         with col2:
             if st.button("Visual Search", key="visual_search", type="primary"):
-                st.switch_page("pages/visual_search.py")
+                st.switch_page("visual_search.py")
         st.markdown('</div>', unsafe_allow_html=True)
 
     chat_container = st.container()
