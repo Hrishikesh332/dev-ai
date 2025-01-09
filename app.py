@@ -86,7 +86,7 @@ st.markdown("""
     /* Add Product Data button */
     .add-product-btn {
         position: fixed;
-        top: 20px;
+        top: 40px;
         right: 20px;
         background-color: #4CAF50;
         border: none;
@@ -222,27 +222,18 @@ def chat_page():
                 else:
                     st.markdown(message["content"])
 
-    col1, col2 = st.columns([9, 1])
     
-    with col1:
-        prompt = st.chat_input("Ask about fashion products...")
+
+    prompt = st.chat_input("Ask about fashion products...")
     
-    with col2:
-        media_file = st.file_uploader("", type=["jpg", "jpeg", "png"], label_visibility="collapsed", 
-                                      accept_multiple_files=False, key="media_uploader")
-        st.markdown('<label for="media_uploader" class="media-upload-btn">+</label>', unsafe_allow_html=True)
     
-    if prompt or media_file:
+    if prompt:
         with st.chat_message("user", avatar="👤"):
             if prompt:
                 st.markdown(prompt)
-            if media_file:
-                st.image(media_file)
         
         user_message = {"role": "user", "content": prompt}
         
-        if media_file:
-            user_message["media_file"] = media_file
         
         st.session_state.messages.append(user_message)
 
@@ -282,15 +273,29 @@ def chat_page():
         """, unsafe_allow_html=True)
 
 def main():
+    # Initialize session state for page if not exists
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 'chat'
+    
+    # Get query parameters
     query_params = st.query_params
     page = query_params.get("page", ["chat"])[0]
-
+    
+    # Update session state
+    st.session_state.current_page = page
+    
+    # Clear page before rendering new content
+    st.empty()
+    
+    # Render appropriate page
     if page == "chat":
         chat_page()
     elif page == "add_product":
         add_product_main()
     elif page == "visual_search":
         visual_search_main()
+    else:
+        chat_page()  # Default to chat page if unknown page parameter
 
 if __name__ == "__main__":
     main()
