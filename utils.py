@@ -1,3 +1,26 @@
+import os
+        
+from dotenv import load_dotenv
+   
+load_dotenv()
+from twelvelabs import TwelveLabs
+from pymilvus import connections, Collection
+from openai import OpenAI
+
+# Load environment variables
+COLLECTION_NAME = os.getenv('COLLECTION_NAME')
+URL = os.getenv('URL')
+TOKEN = os.getenv('TOKEN')
+TWELVELABS_API_KEY = os.getenv('TWELVELABS_API_KEY')
+
+# Initialize connections
+openai_client = OpenAI()
+connections.connect(uri=URL, token=TOKEN)
+collection = Collection(COLLECTION_NAME)
+collection.load()
+
+
+
 def generate_embedding(product_info):
     """Generate embeddings for a single product"""
     try:
@@ -48,26 +71,6 @@ def insert_embeddings(collection, embeddings):
         st.error(f"Error inserting embeddings: {str(e)}")
         return None
         
-import os
-        
-from dotenv import load_dotenv
-   
-load_dotenv()
-from twelvelabs import TwelveLabs
-from pymilvus import connections, Collection
-from openai import OpenAI
-
-# Load environment variables
-COLLECTION_NAME = os.getenv('COLLECTION_NAME')
-URL = os.getenv('URL')
-TOKEN = os.getenv('TOKEN')
-TWELVELABS_API_KEY = os.getenv('TWELVELABS_API_KEY')
-
-# Initialize connections
-openai_client = OpenAI()
-connections.connect(uri=URL, token=TOKEN)
-collection = Collection(COLLECTION_NAME)
-collection.load()
 
 def emb_text(text):
     try:
