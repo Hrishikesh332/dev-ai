@@ -20,7 +20,7 @@ connections.connect(uri=URL, token=TOKEN)
 collection = Collection(COLLECTION_NAME)
 collection.load()
 
-def generate_embeddings(product_info):
+def generate_embedding(product_info):
     """Generate both text and video embeddings for a product"""
     try:
         st.write(f"Processing product: {product_info['title']}")
