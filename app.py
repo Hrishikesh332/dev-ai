@@ -1,6 +1,6 @@
 import streamlit as st
 from dotenv import load_dotenv
-from utils import get_rag_response, generate_embedding, insert_embeddings, collection
+from utils import get_rag_response, generate_embedding, insert_embeddings, collection, create_video_embed, search_similar_videos 
 from add_product_page import main as add_product_main
 from visual_search import main as visual_search_main
 
