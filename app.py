@@ -164,7 +164,19 @@ def chat_page():
         """, unsafe_allow_html=True)
 
 def main():
-    chat_page()
+    # Get the current page from query parameters
+    query_params = st.query_params
+    page = query_params.get("page", "chat")[0] if query_params.get("page") else "chat"
+
+    if page == "chat":
+        chat_page()
+    elif page == "add_product":
+        add_product_main()
+    elif page == "visual_search":
+        visual_search_main()
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
