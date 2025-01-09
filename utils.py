@@ -1,7 +1,7 @@
 import os
 import streamlit as st       
 from dotenv import load_dotenv
-   
+import uuid
 load_dotenv()
 from twelvelabs import TwelveLabs
 from pymilvus import connections, Collection
