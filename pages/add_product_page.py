@@ -1,5 +1,5 @@
 import streamlit as st
-from utils import generate_embeddings, insert_embeddings
+from utils import generate_embedding, insert_embeddings
 
 def add_product_data():
     st.subheader("Add Product Data")
@@ -24,7 +24,7 @@ def add_product_data():
                 }
                 
                 with st.spinner("Processing product..."):
-                    embeddings, error = generate_embeddings(product_data)
+                    embeddings, error = generate_embedding(product_data)
                     
                     if error:
                         st.error(f"Error processing product: {error}")
