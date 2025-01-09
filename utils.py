@@ -30,7 +30,7 @@ def generate_embedding(product_info):
         st.write("Input data structure:")
         st.write({
             "title": product_info['title'],
-            "description": product_info['desc'][:100] + "...",  # Truncate for logging
+            "description": product_info['desc'][:100] + "...",
             "video_url": product_info['video_url']
         })
         
@@ -45,7 +45,7 @@ def generate_embedding(product_info):
         try:
             text_embedding_response = twelvelabs_client.embed.create(
                 model_name="Marengo-retrieval-2.7",
-                text=text
+                data=[{"text": text}]
             )
             st.write("Text embedding API call successful")
             text_embedding = text_embedding_response.text_embedding.segments[0].embeddings_float
@@ -62,7 +62,7 @@ def generate_embedding(product_info):
         try:
             video_embedding_response = twelvelabs_client.embed.create(
                 model_name="Marengo-retrieval-2.7",
-                video_url=product_info['video_url']
+                data=[{"video_url": product_info['video_url']}]
             )
             st.write("Video embedding API call successful")
             video_embedding = video_embedding_response.video_embedding.segments[0].embeddings_float
