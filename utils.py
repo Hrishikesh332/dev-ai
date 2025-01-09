@@ -21,7 +21,7 @@ collection = Collection(COLLECTION_NAME)
 collection.load()
 
 def generate_embedding(product_info):
-    """Generate both text and video embeddings for a product"""
+    """Generate text and segmented video embeddings for a product"""
     try:
         st.write("Starting embedding generation process...")
         st.write(f"Processing product: {product_info['title']}")
@@ -32,65 +32,61 @@ def generate_embedding(product_info):
         # Generate text embedding
         st.write("Attempting to generate text embedding...")
         text = f"{product_info['title']} {product_info['desc']}"
-        st.write(f"Combined text length: {len(text)} characters")
-        
         text_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
             text=text
         ).text_embedding.segments[0].embeddings_float
         st.write("Text embedding generated successfully")
         
-        # Generate video embedding - using the async task approach
-        st.write("Attempting to generate video embedding...")
-        st.write(f"Video URL: {product_info['video_url']}")
-        
-        # Step 1: Create video embedding task
+        # Create and wait for video embedding task
+        st.write("Creating video embedding task...")
         video_task = twelvelabs_client.embed.task.create(
             model_name="Marengo-retrieval-2.7",
-            video_url=product_info['video_url']
+            video_url=product_info['video_url'],
+            video_clip_length=6  # Default segment length
         )
-        st.write(f"Video task created with ID: {video_task.id}")
         
-        # Step 2: Monitor task status
         def on_task_update(task):
             st.write(f"Video processing status: {task.status}")
         
         st.write("Waiting for video processing to complete...")
-        video_task.wait_for_done(
-            sleep_interval=2,
-            callback=on_task_update
-        )
+        video_task.wait_for_done(sleep_interval=2, callback=on_task_update)
         
-        # Step 3: Retrieve video embeddings
+        # Retrieve segmented video embeddings
         video_task = video_task.retrieve()
-        if video_task.video_embedding and video_task.video_embedding.segments:
-            video_embedding = video_task.video_embedding.segments[0].embeddings_float
-            st.write("Video embedding generated successfully")
-            
-            return {
-                'text_embedding': text_embedding,
-                'video_embedding': video_embedding
-            }, None
-        else:
+        if not video_task.video_embedding or not video_task.video_embedding.segments:
             raise Exception("Failed to retrieve video embeddings")
-            
+        
+        video_segments = video_task.video_embedding.segments
+        st.write(f"Retrieved {len(video_segments)} video segments")
+        
+        # Prepare video embeddings with segment information
+        video_embeddings = []
+        for segment in video_segments:
+            video_embeddings.append({
+                'embedding': segment.embeddings_float,
+                'metadata': {
+                    'scope': 'clip',
+                    'start_time': segment.start_offset_sec,
+                    'end_time': segment.end_offset_sec,
+                    'video_url': product_info['video_url']
+                }
+            })
+        
+        return {
+            'text_embedding': text_embedding,
+            'video_embeddings': video_embeddings
+        }, None
+        
     except Exception as e:
         st.error("Error in embedding generation")
         st.error(f"Error message: {str(e)}")
         return None, str(e)
 
-
 def insert_embeddings(embeddings_data, product_info):
-    """Insert both text and video embeddings into the same collection"""
+    """Insert text and all video segment embeddings"""
     try:
-        st.write("Starting embedding insertion process...")
-        
-        # Log the incoming data structure
-        st.write("Embedding data structure check:")
-        st.write(f"Text embedding vector length: {len(embeddings_data['text_embedding'])}")
-        st.write(f"Video embedding vector length: {len(embeddings_data['video_embedding'])}")
-        
-        # Create metadata dictionary
+        # Create base metadata
         metadata = {
             "product_id": product_info['product_id'],
             "title": product_info['title'],
@@ -98,7 +94,6 @@ def insert_embeddings(embeddings_data, product_info):
             "video_url": product_info['video_url'],
             "link": product_info['link']
         }
-        st.write("Metadata prepared successfully")
         
         # Insert text embedding
         text_entry = {
@@ -107,45 +102,37 @@ def insert_embeddings(embeddings_data, product_info):
             "metadata": metadata,
             "embedding_type": "text"
         }
-        st.write("Attempting to insert text embedding...")
         collection.insert([text_entry])
         st.write("Text embedding inserted successfully")
         
-        # Insert video embedding
-        video_entry = {
-            "id": int(uuid.uuid4().int & (1<<63)-1),
-            "vector": embeddings_data['video_embedding'],
-            "metadata": metadata,
-            "embedding_type": "video"
-        }
-        st.write("Attempting to insert video embedding...")
-        collection.insert([video_entry])
-        st.write("Video embedding inserted successfully")
+        # Insert each video segment embedding
+        for video_segment in embeddings_data['video_embeddings']:
+            video_entry = {
+                "id": int(uuid.uuid4().int & (1<<63)-1),
+                "vector": video_segment['embedding'],
+                "metadata": {**metadata, **video_segment['metadata']},
+                "embedding_type": "video"
+            }
+            collection.insert([video_entry])
         
-        st.write("All embeddings inserted successfully")
+        st.write(f"Inserted {len(embeddings_data['video_embeddings'])} video segment embeddings")
         return True
+        
     except Exception as e:
-        st.error("Error in embedding insertion process")
-        st.error(f"Error type: {e.__class__.__name__}")
-        st.error(f"Error message: {str(e)}")
-        st.error(f"Full error details: {repr(e)}")
+        st.error(f"Error inserting embeddings: {str(e)}")
         return False
 
 def search_similar_videos(image_file, top_k=5):
-    """Search for similar videos using image query"""
+    """Search for similar video segments using image query"""
     try:
-        st.write("Initializing visual search...")
-        twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
-        
-        # Generate image embedding
         st.write("Generating image embedding...")
+        twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         image_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
             image_file=image_file
         ).image_embedding.segments[0].embeddings_float
         
-        # Search in collection for video embeddings
-        st.write("Searching for similar videos...")
+        st.write("Searching for similar video segments...")
         search_params = {
             "metric_type": "COSINE",
             "params": {"nprobe": 10}
@@ -163,25 +150,25 @@ def search_similar_videos(image_file, top_k=5):
         search_results = []
         for hits in results:
             for hit in hits:
-                metadata = hit.metadata  # Corrected metadata access
+                metadata = hit.metadata
                 similarity_score = round((1 - float(hit.distance)) * 100, 2)
                 
                 search_results.append({
                     'Title': metadata.get('title', ''),
                     'Description': metadata.get('description', ''),
                     'Link': metadata.get('link', ''),
+                    'Start Time': f"{metadata.get('start_time', 0):.1f}s",
+                    'End Time': f"{metadata.get('end_time', 0):.1f}s",
                     'Video URL': metadata.get('video_url', ''),
                     'Similarity': f"{similarity_score}%"
                 })
         
-        st.write(f"Found {len(search_results)} matching results")
+        st.write(f"Found {len(search_results)} matching segments")
         return search_results
         
     except Exception as e:
         st.error(f"Error in visual search: {str(e)}")
-        st.error(f"Detailed error: {repr(e)}")
         return None
-
 def get_rag_response(question):
     """Get response using text embeddings search"""
     try:
