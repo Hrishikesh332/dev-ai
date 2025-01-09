@@ -1,20 +1,16 @@
 import streamlit as st
 from dotenv import load_dotenv
-from utils import get_rag_response, generate_embedding, insert_embeddings, collection, create_video_embed, search_similar_videos 
-from add_product_page import main as add_product_main
-from visual_search import main as visual_search_main
+from utils import get_rag_response, generate_embedding, insert_embeddings, collection
 
 load_dotenv()
 
 st.markdown("""
 <style>
-    /* Main container styling */
     .main {
         padding: 2rem;
         background-color: #fafafa;
     }
     
-    /* Header styling */
     .stTitle {
         font-family: 'Helvetica Neue', sans-serif;
         color: #1e1e1e;
@@ -22,7 +18,6 @@ st.markdown("""
         padding-bottom: 2rem;
     }
     
-    /* Chat container styling */
     .stChatMessage {
         background-color: white;
         border-radius: 15px;
@@ -31,7 +26,6 @@ st.markdown("""
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     
-    /* Product card styling */
     .product-card {
         background-color: white;
         border-radius: 10px;
@@ -40,90 +34,29 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     
-    /* Button styling */
-    .stButton>button {
-        background-color: #FF4B6B;
-        color: white;
-        border-radius: 25px;
-        padding: 0.5rem 2rem;
-        border: none;
-        transition: all 0.3s ease;
+    .nav-button {
+        background-color: #4CAF50 !important;
+        color: white !important;
+        border-radius: 4px !important;
+        border: none !important;
+        padding: 0.5rem 1rem !important;
+        cursor: pointer !important;
     }
     
-    .stButton>button:hover {
-        background-color: #FF3358;
-        transform: translateY(-2px);
+    .nav-button:hover {
+        background-color: #45a049 !important;
     }
     
-    /* Sidebar styling */
-    .css-1d391kg {
-        background-color: #f1f1f1;
-    }
-    
-    /* Video player styling */
-    .stVideo {
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    
-    /* Expander styling */
-    .streamlit-expanderHeader {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        font-weight: 600;
-    }
-    
-    /* Custom divider */
-    .divider {
-        height: 3px;
-        background: linear-gradient(90deg, #FF4B6B 0%, #FF8E53 100%);
-        margin: 1rem 0;
-        border-radius: 2px;
-    }
-    
-    /* Add Product Data button */
-    .add-product-btn {
+    .nav-container {
         position: fixed;
-        top: 40px;
+        top: 80px;
         right: 20px;
-        background-color: #4CAF50;
-        border: none;
-        color: white;
-        padding: 10px 20px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
-        font-size: 16px;
-        margin: 4px 2px;
-        cursor: pointer;
-        border-radius: 4px;
+        display: flex;
+        gap: 10px;
         z-index: 1000;
-    }
-    .add-product-btn:hover {
-        background-color: #45a049;
-    }
-        /* Media upload button */
-    .media-upload-btn {
-        background-color: #f0f0f0;
-        border: none;
-        color: #333;
-        padding: 8px 16px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
-        font-size: 14px;
-        margin: 4px 2px;
-        cursor: pointer;
-        border-radius: 4px;
-    }
-    .media-upload-btn:hover {
-        background-color: #e0e0e0;
     }
 </style>
 """, unsafe_allow_html=True)
-
 
 def render_product_details(source):
     with st.container():
@@ -157,45 +90,6 @@ def render_product_details(source):
             if source['video_url']:
                 st.video(source['video_url'])
 
-def add_product_data():
-    st.markdown('<div class="add-product-container">', unsafe_allow_html=True)
-    st.subheader("Add Product Data")
-    
-    product_id = st.text_input("Product ID")
-    title = st.text_input("Title")
-    description = st.text_area("Description")
-    link = st.text_input("Link")
-    video_url = st.text_input("Video URL")
-    
-    if st.button("Add Product"):
-        if product_id and title and description and link and video_url:
-            product_data = {
-                "product_id": product_id,
-                "title": title,
-                "desc": description,
-                "link": link,
-                "video_url": video_url
-            }
-            
-            with st.spinner("Processing product..."):
-                embeddings, error = generate_embedding(product_data)
-                
-                if error:
-                    st.error(f"Error processing product: {error}")
-                else:
-                    insert_result = insert_embeddings(collection, embeddings)
-                    
-                    if insert_result:
-                        st.success("Product data added successfully!")
-                    else:
-                        st.error("Failed to add product data.")
-        else:
-            st.warning("Please fill in all fields.")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
-
 def chat_page():
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
@@ -203,6 +97,18 @@ def chat_page():
             <p style="color: #666; font-size: 1.2em;">Your personal style advisor powered by AI</p>
         </div>
     """, unsafe_allow_html=True)
+    
+    # Navigation buttons
+    with st.container():
+        st.markdown('<div class="nav-container">', unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("+ Product Data", key="add_product", type="primary"):
+                st.switch_page("pages/add_product_page.py")
+        with col2:
+            if st.button("Visual Search", key="visual_search", type="primary"):
+                st.switch_page("pages/visual_search.py")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     chat_container = st.container()
     
@@ -222,19 +128,13 @@ def chat_page():
                 else:
                     st.markdown(message["content"])
 
-    
-
     prompt = st.chat_input("Ask about fashion products...")
-    
     
     if prompt:
         with st.chat_message("user", avatar="👤"):
-            if prompt:
-                st.markdown(prompt)
+            st.markdown(prompt)
         
         user_message = {"role": "user", "content": prompt}
-        
-        
         st.session_state.messages.append(user_message)
 
         with st.chat_message("assistant", avatar="🤵‍♂️"):
@@ -248,15 +148,6 @@ def chat_page():
                             st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         
         st.session_state.messages.append({"role": "assistant", "content": response_data})
-    
-    st.markdown("""
-        <a class="add-product-btn" href="/?page=add_product" style="right: 200px;">
-            + Product Data
-        </a>
-        <a class="add-product-btn" href="/?page=visual_search" style="right: 20px;">
-            Visual Search
-        </a>
-    """, unsafe_allow_html=True)
     
     with st.sidebar:
         st.markdown("""
@@ -273,29 +164,7 @@ def chat_page():
         """, unsafe_allow_html=True)
 
 def main():
-    # Initialize session state for page if not exists
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'chat'
-    
-    # Get query parameters
-    query_params = st.query_params
-    page = query_params.get("page", ["chat"])[0]
-    
-    # Update session state
-    st.session_state.current_page = page
-    
-    # Clear page before rendering new content
-    st.empty()
-    
-    # Render appropriate page
-    if page == "chat":
-        chat_page()
-    elif page == "add_product":
-        add_product_main()
-    elif page == "visual_search":
-        visual_search_main()
-    else:
-        chat_page()  # Default to chat page if unknown page parameter
+    chat_page()
 
 if __name__ == "__main__":
     main()
