@@ -218,20 +218,25 @@ def get_rag_response(question):
         st.write("\n=== Debug: Starting Search Process ===")
         st.write(f"Search Query: '{question}'")
         
+        # Generate embeddings with more context
+        question_with_context = f"fashion product: {question}"  # Add domain context
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         question_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
-            text=question
+            text=question_with_context
         ).text_embedding.segments[0].embeddings_float
         
-        st.write("\n=== Debug: Embedding Info ===")
-        st.write(f"Embedding Length: {len(question_embedding)}")
-        
+        st.write("\n=== Debug: Search Configuration ===")
         search_params = {
             "metric_type": "COSINE",
-            "params": {"nprobe": 10}
+            "params": {
+                "nprobe": 1024,  # Increased for better coverage
+                "ef": 64        # Search effectiveness
+            }
         }
+        st.write(f"Search Parameters: {search_params}")
         
+        # Execute search with improved parameters
         results = collection.search(
             data=[question_embedding],
             anns_field="vector",
@@ -252,8 +257,6 @@ def get_rag_response(question):
             for idx, hit in enumerate(hits):
                 metadata = hit.metadata
                 raw_distance = float(hit.distance)
-                
-                # New similarity calculation
                 similarity = round((1 - (raw_distance/2)) * 100, 2)
                 
                 st.write(f"\n--- Hit {idx + 1} Details ---")
@@ -274,7 +277,7 @@ def get_rag_response(question):
                     "similarity": similarity
                 })
 
-        # Sort by similarity (higher is better)
+        # Sort by similarity
         retrieved_docs.sort(key=lambda x: x['similarity'], reverse=True)
         
         st.write("\n=== Debug: Final Sorted Results ===")
