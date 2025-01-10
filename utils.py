@@ -226,7 +226,7 @@ def get_rag_response(question):
         search_params = {
             "metric_type": "COSINE",
             "params": {
-                "nprobe": 1024
+                "nprobe": 10
             }
         }
         
@@ -248,11 +248,9 @@ def get_rag_response(question):
             for hit in hits:
                 metadata = hit.metadata
                 raw_distance = float(hit.distance)
-                # Since Milvus returns distances where lower is better,
-                # and the range is [0, 2] for cosine distance:
-                # - distance of 0 means exact match (100% similar)
-                # - distance of 2 means opposite (0% similar)
-                similarity = round((1 - (raw_distance/2)) * 100, 2)
+                
+                # Simple conversion from Milvus cosine distance to similarity percentage
+                similarity = round(((1 - raw_distance) / 2) * 100, 2)
                 
                 st.write(f"\nResult Details:")
                 st.write(f"Title: {metadata.get('title', 'Untitled')}")
