@@ -30,9 +30,15 @@ def generate_embedding(product_info):
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         st.write("TwelveLabs client initialized successfully")
         
-        # Generate text embedding
+        # Generate text embedding with better context
         st.write("Attempting to generate text embedding...")
-        text = f"{product_info['title']} {product_info['desc']}"
+        # Include full product context in embedding generation
+        text = f"product type: {product_info['title']}. " \
+               f"product description: {product_info['desc']}. " \
+               f"product category: fashion apparel."
+               
+        st.write(f"Generating embedding for text: {text}")
+        
         text_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
             text=text
@@ -44,7 +50,7 @@ def generate_embedding(product_info):
         video_task = twelvelabs_client.embed.task.create(
             model_name="Marengo-retrieval-2.7",
             video_url=product_info['video_url'],
-            video_clip_length=6  # Default segment length
+            video_clip_length=6
         )
         
         def on_task_update(task):
@@ -61,7 +67,6 @@ def generate_embedding(product_info):
         video_segments = video_task.video_embedding.segments
         st.write(f"Retrieved {len(video_segments)} video segments")
         
-        # Prepare video embeddings with segment information
         video_embeddings = []
         for segment in video_segments:
             video_embeddings.append({
@@ -83,6 +88,7 @@ def generate_embedding(product_info):
         st.error("Error in embedding generation")
         st.error(f"Error message: {str(e)}")
         return None, str(e)
+
 
 def insert_embeddings(embeddings_data, product_info):
     """Insert text and all video segment embeddings"""
@@ -215,10 +221,7 @@ def calculate_text_similarity(distance):
 def get_rag_response(question):
     """Get response using text embeddings search"""
     try:
-        st.write("\n=== Debug: Starting Search Process ===")
-        st.write(f"Search Query: '{question}'")
-        
-        # Generate embeddings with more context
+        # Generate embedding for the question
         question_with_context = f"fashion product: {question}"  # Add domain context
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         question_embedding = twelvelabs_client.embed.create(
@@ -226,17 +229,14 @@ def get_rag_response(question):
             text=question_with_context
         ).text_embedding.segments[0].embeddings_float
         
-        st.write("\n=== Debug: Search Configuration ===")
         search_params = {
             "metric_type": "COSINE",
             "params": {
-                "nprobe": 1024,  # Increased for better coverage
-                "ef": 64        # Search effectiveness
+                "nprobe": 1024,
+                "ef": 64
             }
         }
-        st.write(f"Search Parameters: {search_params}")
         
-        # Execute search with improved parameters
         results = collection.search(
             data=[question_embedding],
             anns_field="vector",
@@ -247,25 +247,11 @@ def get_rag_response(question):
         )
 
         retrieved_docs = []
-        st.write("\n=== Debug: Raw Search Results ===")
-        
         for hits in results:
-            st.write("\nHits Information:")
-            st.write(f"Number of hits: {len(hits)}")
-            st.write(f"Raw distances array: {hits.distances}")
-            
-            for idx, hit in enumerate(hits):
+            for hit in hits:
                 metadata = hit.metadata
                 raw_distance = float(hit.distance)
                 similarity = round((1 - (raw_distance/2)) * 100, 2)
-                
-                st.write(f"\n--- Hit {idx + 1} Details ---")
-                st.write(f"Title: {metadata.get('title', 'Untitled')}")
-                st.write(f"Raw distance: {raw_distance}")
-                st.write("Similarity Calculation:")
-                st.write(f"1. Distance/2: {raw_distance}/2 = {raw_distance/2}")
-                st.write(f"2. 1 - (Distance/2) = 1 - {raw_distance/2} = {1 - (raw_distance/2)}")
-                st.write(f"3. Final similarity: {similarity}%")
                 
                 retrieved_docs.append({
                     "title": metadata.get('title', 'Untitled'),
@@ -273,19 +259,11 @@ def get_rag_response(question):
                     "product_id": metadata.get('product_id', ''),
                     "video_url": metadata.get('video_url', ''),
                     "link": metadata.get('link', ''),
-                    "raw_distance": raw_distance,
                     "similarity": similarity
                 })
 
         # Sort by similarity
         retrieved_docs.sort(key=lambda x: x['similarity'], reverse=True)
-        
-        st.write("\n=== Debug: Final Sorted Results ===")
-        for idx, doc in enumerate(retrieved_docs):
-            st.write(f"\nResult {idx + 1}:")
-            st.write(f"Title: {doc['title']}")
-            st.write(f"Raw Distance: {doc['raw_distance']}")
-            st.write(f"Final Similarity: {doc['similarity']}%")
 
         if not retrieved_docs:
             return {
@@ -325,8 +303,6 @@ def get_rag_response(question):
         }
     
     except Exception as e:
-        st.error(f"Error in RAG response: {str(e)}")
-        st.error(f"Detailed error: {repr(e)}")
         return {
             "response": "I encountered an error while processing your request.",
             "metadata": None
