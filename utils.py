@@ -132,17 +132,18 @@ def insert_embeddings(embeddings_data, product_info):
 def search_similar_videos(image_file, top_k=5):
     """Search for similar video segments using image query"""
     try:
-        st.write("Generating image embedding...")
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         image_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
             image_file=image_file
         ).image_embedding.segments[0].embeddings_float
         
-        st.write("Searching for similar video segments...")
         search_params = {
             "metric_type": "COSINE",
-            "params": {"nprobe": 10}
+            "params": {
+                "nprobe": 1024,
+                "ef": 64
+            }
         }
         
         results = collection.search(
@@ -155,24 +156,12 @@ def search_similar_videos(image_file, top_k=5):
         )
 
         search_results = []
-        st.write("\nDebug Information:")
-        
         for hits in results:
-            st.write(f"\nRaw distances: {hits.distances}")
-            
-            for idx, hit in enumerate(hits):
+            for hit in hits:
                 metadata = hit.metadata
-                raw_distance = float(hit.distance)
-                # Convert distance to similarity score (since we're using cosine distance)
-                # Cosine distance is between 0 and 2, where:
-                # - 0 means vectors are identical
-                # - 2 means vectors are opposite
-                # - 1 means vectors are orthogonal
-                similarity_score = round((1 - (raw_distance / 2)) * 100, 2)
-                
-                st.write(f"\nResult {idx + 1}:")
-                st.write(f"Raw distance: {raw_distance}")
-                st.write(f"Calculated similarity: {similarity_score}%")
+                # Convert score from [-1,1] to [0,100] range
+                similarity = round((hit.score + 1) * 50, 2)
+                similarity = max(0, min(100, similarity))
                 
                 search_results.append({
                     'Title': metadata.get('title', ''),
@@ -181,19 +170,16 @@ def search_similar_videos(image_file, top_k=5):
                     'Start Time': f"{metadata.get('start_time', 0):.1f}s",
                     'End Time': f"{metadata.get('end_time', 0):.1f}s",
                     'Video URL': metadata.get('video_url', ''),
-                    'Raw Distance': raw_distance,
-                    'Similarity': f"{similarity_score}%"
+                    'Similarity': f"{similarity}%",
+                    'Raw Score': hit.score
                 })
         
-        # Sort results by similarity score in descending order
+        # Sort by similarity score in descending order
         search_results.sort(key=lambda x: float(x['Similarity'].rstrip('%')), reverse=True)
         
-        st.write(f"\nFound {len(search_results)} matching segments")
         return search_results
         
     except Exception as e:
-        st.error(f"Error in visual search: {str(e)}")
-        st.error(f"Detailed error: {repr(e)}")
         return None
         
 def get_rag_response(question):
