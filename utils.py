@@ -215,21 +215,31 @@ def calculate_text_similarity(distance):
 def get_rag_response(question):
     """Get response using text embeddings search"""
     try:
-        st.write("Generating question embedding...")
+        st.write("\n=== Debug: Starting Search Process ===")
+        st.write(f"Search Query: '{question}'")
+        
+        # Generate embedding for query
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         question_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
             text=question
         ).text_embedding.segments[0].embeddings_float
         
-        st.write("Searching for relevant products...")
+        st.write("\n=== Debug: Embedding Info ===")
+        st.write(f"Embedding Length: {len(question_embedding)}")
+        st.write(f"First few values: {question_embedding[:5]}")
+        
+        # Configure search
+        st.write("\n=== Debug: Search Configuration ===")
         search_params = {
             "metric_type": "COSINE",
             "params": {
                 "nprobe": 10
             }
         }
+        st.write(f"Search Parameters: {search_params}")
         
+        # Execute search
         results = collection.search(
             data=[question_embedding],
             anns_field="vector",
@@ -240,43 +250,61 @@ def get_rag_response(question):
         )
 
         retrieved_docs = []
-        st.write("\nSearch Results Debug Info:")
+        st.write("\n=== Debug: Raw Search Results ===")
         
         for hits in results:
-            st.write(f"Raw distances: {hits.distances}")
+            st.write("\nHits Information:")
+            st.write(f"Number of hits: {len(hits)}")
+            st.write(f"Raw distances array: {hits.distances}")
             
-            for hit in hits:
+            st.write("\nProcessing individual hits:")
+            for idx, hit in enumerate(hits):
                 metadata = hit.metadata
                 raw_distance = float(hit.distance)
                 
-                # Simple conversion from Milvus cosine distance to similarity percentage
-                similarity = round(((1 - raw_distance) / 2) * 100, 2)
-                
-                st.write(f"\nResult Details:")
+                # Detailed similarity calculation
+                st.write(f"\n--- Hit {idx + 1} Details ---")
                 st.write(f"Title: {metadata.get('title', 'Untitled')}")
-                st.write(f"Raw distance: {raw_distance}")
-                st.write(f"Calculated similarity: {similarity}%")
+                st.write(f"Raw distance from Milvus: {raw_distance}")
                 
+                # Original formula: ((1 - raw_distance) / 2) * 100
+                step1 = 1 - raw_distance
+                step2 = step1 / 2
+                similarity = round(step2 * 100, 2)
+                
+                st.write("Similarity Calculation Steps:")
+                st.write(f"1. 1 - raw_distance = 1 - {raw_distance} = {step1}")
+                st.write(f"2. Step1 / 2 = {step1} / 2 = {step2}")
+                st.write(f"3. (Step2 * 100) rounded = {step2} * 100 = {similarity}%")
+                
+                # Store the processed result
                 retrieved_docs.append({
                     "title": metadata.get('title', 'Untitled'),
                     "description": metadata.get('description', 'No description available'),
                     "product_id": metadata.get('product_id', ''),
                     "video_url": metadata.get('video_url', ''),
                     "link": metadata.get('link', ''),
+                    "raw_distance": raw_distance,
                     "similarity": similarity
                 })
 
-        # Sort by similarity (higher percentage = better match)
+        # Sort results
         retrieved_docs.sort(key=lambda x: x['similarity'], reverse=True)
+        
+        st.write("\n=== Debug: Final Sorted Results ===")
+        for idx, doc in enumerate(retrieved_docs):
+            st.write(f"\nResult {idx + 1}:")
+            st.write(f"Title: {doc['title']}")
+            st.write(f"Raw Distance: {doc['raw_distance']}")
+            st.write(f"Final Similarity: {doc['similarity']}%")
 
         if not retrieved_docs:
             return {
-                "response": "I couldn't find any closely matching products. Could you please provide more specific details about what you're looking for?",
+                "response": "I couldn't find any matching products. Try describing what you're looking for differently.",
                 "metadata": None
             }
-
-        st.write(f"Found {len(retrieved_docs)} relevant products")
         
+        # Create context and generate response
         context = "\n\n".join([
             f"Title: {doc['title']} (Relevance: {doc['similarity']}%)\nDescription: {doc['description']}"
             for doc in retrieved_docs
@@ -295,7 +323,6 @@ def get_rag_response(question):
             }
         ]
 
-        st.write("Generating response...")
         chat_response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages
