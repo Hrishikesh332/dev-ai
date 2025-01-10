@@ -172,6 +172,7 @@ def search_similar_videos(image_file, top_k=5):
 def get_rag_response(question):
     """Get response using text embeddings search"""
     try:
+        st.write("Generating question embedding...")
         # Generate embedding for the question
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         question_embedding = twelvelabs_client.embed.create(
@@ -179,6 +180,7 @@ def get_rag_response(question):
             text=question
         ).text_embedding.segments[0].embeddings_float
         
+        st.write("Searching for relevant products...")
         # Search for similar text embeddings
         search_params = {
             "metric_type": "COSINE",
@@ -190,25 +192,25 @@ def get_rag_response(question):
             anns_field="vector",
             param=search_params,
             limit=2,
-            expr="embedding_type == 'text'",  # Filter for text embeddings
+            expr="embedding_type == 'text'",
             output_fields=["metadata"]
         )
 
         retrieved_docs = []
-        for hit in results[0]:
-            metadata = hit.entity.get('metadata', {})
-            if metadata:
-                similarity = round((hit.score + 1) * 50, 2)
-                similarity = max(0, min(100, similarity))
-                
-                retrieved_docs.append({
-                    "title": metadata.get('title', 'Untitled'),
-                    "description": metadata.get('description', 'No description available'),
-                    "product_id": metadata.get('product_id', ''),
-                    "video_url": metadata.get('video_url', ''),
-                    "link": metadata.get('link', ''),
-                    "similarity": similarity
-                })
+        for hits in results:
+            for hit in hits:
+                metadata = hit.metadata  # Direct access to metadata
+                if metadata:
+                    similarity = round((1 - float(hit.distance)) * 100, 2)  # Convert distance to similarity score
+                    
+                    retrieved_docs.append({
+                        "title": metadata.get('title', 'Untitled'),
+                        "description": metadata.get('description', 'No description available'),
+                        "product_id": metadata.get('product_id', ''),
+                        "video_url": metadata.get('video_url', ''),
+                        "link": metadata.get('link', ''),
+                        "similarity": similarity
+                    })
 
         if not retrieved_docs:
             return {
@@ -216,6 +218,8 @@ def get_rag_response(question):
                 "metadata": None
             }
 
+        st.write(f"Found {len(retrieved_docs)} relevant products")
+        
         context = "\n\n".join([
             f"Title: {doc['title']}\nDescription: {doc['description']}"
             for doc in retrieved_docs
@@ -234,6 +238,7 @@ def get_rag_response(question):
             }
         ]
 
+        st.write("Generating response...")
         chat_response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages
@@ -248,6 +253,8 @@ def get_rag_response(question):
         }
     
     except Exception as e:
+        st.error(f"Error in RAG response: {str(e)}")
+        st.error(f"Detailed error: {repr(e)}")
         return {
             "response": "I encountered an error while processing your request.",
             "metadata": None
