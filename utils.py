@@ -135,7 +135,11 @@ def search_similar_videos(image_file, top_k=5):
         st.write("Searching for similar video segments...")
         search_params = {
             "metric_type": "COSINE",
-            "params": {"nprobe": 10}
+            "params": {
+                "nprobe": 1024,
+                "radius": 0.8,
+                "range_filter": 1.0
+            }
         }
         
         results = collection.search(
@@ -151,7 +155,8 @@ def search_similar_videos(image_file, top_k=5):
         for hits in results:
             for hit in hits:
                 metadata = hit.metadata
-                similarity_score = round((1 - float(hit.distance)) * 100, 2)
+                # Calculate similarity score
+                similarity_score = round((1 - hit.distance) * 100, 2)
                 
                 search_results.append({
                     'Title': metadata.get('title', ''),
@@ -169,11 +174,12 @@ def search_similar_videos(image_file, top_k=5):
     except Exception as e:
         st.error(f"Error in visual search: {str(e)}")
         return None
+
+
 def get_rag_response(question):
     """Get response using text embeddings search"""
     try:
         st.write("Generating question embedding...")
-        # Generate embedding for the question
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         question_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
@@ -181,10 +187,13 @@ def get_rag_response(question):
         ).text_embedding.segments[0].embeddings_float
         
         st.write("Searching for relevant products...")
-        # Search for similar text embeddings
         search_params = {
             "metric_type": "COSINE",
-            "params": {"nprobe": 10}
+            "params": {
+                "nprobe": 1024,
+                "radius": 0.8,  # Adjusted for better radius search
+                "range_filter": 1.0
+            }
         }
         
         results = collection.search(
@@ -199,9 +208,11 @@ def get_rag_response(question):
         retrieved_docs = []
         for hits in results:
             for hit in hits:
-                metadata = hit.metadata  # Direct access to metadata
+                metadata = hit.metadata
                 if metadata:
-                    similarity = round((1 - float(hit.distance)) * 100, 2)  # Convert distance to similarity score
+                    # Cosine similarity score will be between -1 and 1
+                    # Converting to percentage between 0 and 100
+                    similarity = round((1 - hit.distance) * 100, 2)
                     
                     retrieved_docs.append({
                         "title": metadata.get('title', 'Untitled'),
@@ -238,7 +249,6 @@ def get_rag_response(question):
             }
         ]
 
-        st.write("Generating response...")
         chat_response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages
