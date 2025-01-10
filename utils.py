@@ -147,13 +147,22 @@ def search_similar_videos(image_file, top_k=5):
         )
 
         search_results = []
+        st.write("\nDebug Information:")
+        
         for hits in results:
-            for hit in hits:
+            st.write(f"\nRaw distances: {hits.distances}")
+            st.write(f"Raw scores: {hits.scores}")
+            
+            for idx, hit in enumerate(hits):
                 metadata = hit.metadata
-                # Adjust similarity calculation - cosine distance to similarity
-                distance = float(hit.distance)
-                # For cosine similarity: closer to 1 means more similar
-                similarity_score = round(((1 + hit.score) / 2) * 100, 2)
+                raw_score = hit.score
+                raw_distance = hit.distance
+                similarity_score = round(((1 + raw_score) / 2) * 100, 2)
+                
+                st.write(f"\nResult {idx + 1}:")
+                st.write(f"Raw distance: {raw_distance}")
+                st.write(f"Raw score: {raw_score}")
+                st.write(f"Calculated similarity: {similarity_score}%")
                 
                 search_results.append({
                     'Title': metadata.get('title', ''),
@@ -162,13 +171,14 @@ def search_similar_videos(image_file, top_k=5):
                     'Start Time': f"{metadata.get('start_time', 0):.1f}s",
                     'End Time': f"{metadata.get('end_time', 0):.1f}s",
                     'Video URL': metadata.get('video_url', ''),
+                    'Raw Score': raw_score,
                     'Similarity': f"{similarity_score}%"
                 })
         
         # Sort results by similarity score in descending order
         search_results.sort(key=lambda x: float(x['Similarity'].rstrip('%')), reverse=True)
         
-        st.write(f"Found {len(search_results)} matching segments")
+        st.write(f"\nFound {len(search_results)} matching segments")
         return search_results
         
     except Exception as e:
