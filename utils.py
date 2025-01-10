@@ -226,8 +226,7 @@ def get_rag_response(question):
         search_params = {
             "metric_type": "COSINE",
             "params": {
-                "nprobe": 1024,  # Increased for better search coverage
-                "ef": 64        # Search effectiveness parameter
+                "nprobe": 1024
             }
         }
         
@@ -249,24 +248,27 @@ def get_rag_response(question):
             for hit in hits:
                 metadata = hit.metadata
                 raw_distance = float(hit.distance)
-                similarity = calculate_text_similarity(raw_distance)
+                # Since Milvus returns distances where lower is better,
+                # and the range is [0, 2] for cosine distance:
+                # - distance of 0 means exact match (100% similar)
+                # - distance of 2 means opposite (0% similar)
+                similarity = round((1 - (raw_distance/2)) * 100, 2)
                 
                 st.write(f"\nResult Details:")
                 st.write(f"Title: {metadata.get('title', 'Untitled')}")
                 st.write(f"Raw distance: {raw_distance}")
                 st.write(f"Calculated similarity: {similarity}%")
                 
-                if similarity >= 30:  # Only include reasonably relevant matches
-                    retrieved_docs.append({
-                        "title": metadata.get('title', 'Untitled'),
-                        "description": metadata.get('description', 'No description available'),
-                        "product_id": metadata.get('product_id', ''),
-                        "video_url": metadata.get('video_url', ''),
-                        "link": metadata.get('link', ''),
-                        "similarity": similarity
-                    })
+                retrieved_docs.append({
+                    "title": metadata.get('title', 'Untitled'),
+                    "description": metadata.get('description', 'No description available'),
+                    "product_id": metadata.get('product_id', ''),
+                    "video_url": metadata.get('video_url', ''),
+                    "link": metadata.get('link', ''),
+                    "similarity": similarity
+                })
 
-        # Sort by similarity
+        # Sort by similarity (higher percentage = better match)
         retrieved_docs.sort(key=lambda x: x['similarity'], reverse=True)
 
         if not retrieved_docs:
@@ -277,7 +279,6 @@ def get_rag_response(question):
 
         st.write(f"Found {len(retrieved_docs)} relevant products")
         
-        # Enhanced context building with similarity scores
         context = "\n\n".join([
             f"Title: {doc['title']} (Relevance: {doc['similarity']}%)\nDescription: {doc['description']}"
             for doc in retrieved_docs
@@ -288,8 +289,7 @@ def get_rag_response(question):
                 "role": "system",
                 "content": """You are a professional fashion advisor and AI shopping assistant.
                 Provide stylish, engaging responses about fashion products.
-                Focus on style, trends, and helping customers find the perfect items.
-                Consider the relevance scores of the products when making recommendations."""
+                Focus on style, trends, and helping customers find the perfect items."""
             },
             {
                 "role": "user",
