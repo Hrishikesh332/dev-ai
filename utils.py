@@ -121,6 +121,36 @@ def insert_embeddings(embeddings_data, product_info):
     except Exception as e:
         st.error(f"Error inserting embeddings: {str(e)}")
         return False
+def calculate_similarity_score(distance):
+    """
+    Advanced similarity score calculation using L2-normalized cosine similarity
+    with exponential scaling.
+    
+    Args:
+        distance (float): Cosine distance from Milvus
+    
+    Returns:
+        float: Normalized similarity score (0-100)
+    """
+    # L2 normalization factor
+    l2_norm = 1.0
+
+    # Convert distance to base similarity (-1 to 1 range)
+    base_similarity = 1 - min(max(distance, 0), 2)
+    
+    # Apply L2 normalization
+    normalized_sim = base_similarity / l2_norm
+    
+    # Apply exponential scaling to emphasize high similarities
+    # and de-emphasize low similarities
+    alpha = 2.0  # Scaling factor
+    exp_similarity = (1 - np.exp(-alpha * normalized_sim)) / (1 - np.exp(-alpha))
+    
+    # Convert to percentage and ensure bounds
+    final_score = round(max(0, min(100, exp_similarity * 100)), 2)
+    
+    return final_score
+
 def search_similar_videos(image_file, top_k=5):
     """Search for similar video segments using image query"""
     try:
@@ -134,7 +164,10 @@ def search_similar_videos(image_file, top_k=5):
         st.write("Searching for similar video segments...")
         search_params = {
             "metric_type": "COSINE",
-            "params": {"nprobe": 10}
+            "params": {
+                "nprobe": 10,
+                "ef": 64  # Adding search effectiveness parameter
+            }
         }
         
         results = collection.search(
@@ -155,12 +188,21 @@ def search_similar_videos(image_file, top_k=5):
             for idx, hit in enumerate(hits):
                 metadata = hit.metadata
                 raw_distance = float(hit.distance)
-
-                similarity_score = round((1 - (raw_distance / 2)) * 100, 2)
+                similarity_score = calculate_similarity_score(raw_distance)
                 
                 st.write(f"\nResult {idx + 1}:")
                 st.write(f"Raw distance: {raw_distance}")
                 st.write(f"Calculated similarity: {similarity_score}%")
+                
+                # Calculate confidence level based on similarity score
+                if similarity_score >= 80:
+                    confidence = "Very High"
+                elif similarity_score >= 60:
+                    confidence = "High"
+                elif similarity_score >= 40:
+                    confidence = "Moderate"
+                else:
+                    confidence = "Low"
                 
                 search_results.append({
                     'Title': metadata.get('title', ''),
@@ -170,14 +212,18 @@ def search_similar_videos(image_file, top_k=5):
                     'End Time': f"{metadata.get('end_time', 0):.1f}s",
                     'Video URL': metadata.get('video_url', ''),
                     'Raw Distance': raw_distance,
-                    'Similarity': f"{similarity_score}%"
+                    'Similarity': f"{similarity_score}%",
+                    'Confidence': confidence
                 })
         
         # Sort results by similarity score in descending order
         search_results.sort(key=lambda x: float(x['Similarity'].rstrip('%')), reverse=True)
         
-        st.write(f"\nFound {len(search_results)} matching segments")
-        return search_results
+        # Filter out low confidence results
+        filtered_results = [r for r in search_results if r['Confidence'] != 'Low']
+        
+        st.write(f"\nFound {len(filtered_results)} high-confidence matches out of {len(search_results)} total matches")
+        return filtered_results if filtered_results else search_results  # Return all results if no high confidence matches
         
     except Exception as e:
         st.error(f"Error in visual search: {str(e)}")
