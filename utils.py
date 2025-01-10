@@ -151,17 +151,15 @@ def search_similar_videos(image_file, top_k=5):
         
         for hits in results:
             st.write(f"\nRaw distances: {hits.distances}")
-            st.write(f"Raw scores: {hits.scores}")
             
             for idx, hit in enumerate(hits):
                 metadata = hit.metadata
-                raw_score = hit.score
-                raw_distance = hit.distance
-                similarity_score = round(((1 + raw_score) / 2) * 100, 2)
+                raw_distance = float(hit.distance)
+
+                similarity_score = round((1 - (raw_distance / 2)) * 100, 2)
                 
                 st.write(f"\nResult {idx + 1}:")
                 st.write(f"Raw distance: {raw_distance}")
-                st.write(f"Raw score: {raw_score}")
                 st.write(f"Calculated similarity: {similarity_score}%")
                 
                 search_results.append({
@@ -171,7 +169,7 @@ def search_similar_videos(image_file, top_k=5):
                     'Start Time': f"{metadata.get('start_time', 0):.1f}s",
                     'End Time': f"{metadata.get('end_time', 0):.1f}s",
                     'Video URL': metadata.get('video_url', ''),
-                    'Raw Score': raw_score,
+                    'Raw Distance': raw_distance,
                     'Similarity': f"{similarity_score}%"
                 })
         
@@ -183,6 +181,7 @@ def search_similar_videos(image_file, top_k=5):
         
     except Exception as e:
         st.error(f"Error in visual search: {str(e)}")
+        st.error(f"Detailed error: {repr(e)}")
         return None
         
 def get_rag_response(question):
