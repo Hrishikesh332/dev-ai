@@ -5,7 +5,7 @@ from twelvelabs import TwelveLabs
 from pymilvus import connections, Collection
 import streamlit as st
 from openai import OpenAI
-
+import numpy as np
 
 load_dotenv()
 
