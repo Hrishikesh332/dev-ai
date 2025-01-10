@@ -190,11 +190,32 @@ def search_similar_videos(image_file, top_k=5):
         st.error(f"Detailed error: {repr(e)}")
         return None
         
+def calculate_text_similarity(distance):
+    """
+    Calculate similarity score for text embeddings with improved scaling.
+    
+    Args:
+        distance (float): Cosine distance from Milvus
+        
+    Returns:
+        float: Normalized similarity score (0-100)
+    """
+    # Convert distance to base similarity (0 to 1 range)
+    base_similarity = 1 - min(max(distance, 0), 2) / 2
+    
+    # Apply sigmoid scaling to emphasize meaningful similarities
+    # and de-emphasize weak matches
+    alpha = 5.0  # Steepness of the sigmoid curve
+    beta = 0.5   # Midpoint of the sigmoid curve
+    scaled_similarity = 1 / (1 + np.exp(-alpha * (base_similarity - beta)))
+    
+    # Convert to percentage and round
+    return round(scaled_similarity * 100, 2)
+
 def get_rag_response(question):
     """Get response using text embeddings search"""
     try:
         st.write("Generating question embedding...")
-        # Generate embedding for the question
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         question_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
@@ -202,10 +223,12 @@ def get_rag_response(question):
         ).text_embedding.segments[0].embeddings_float
         
         st.write("Searching for relevant products...")
-        # Search for similar text embeddings
         search_params = {
             "metric_type": "COSINE",
-            "params": {"nprobe": 10}
+            "params": {
+                "nprobe": 1024,  # Increased for better search coverage
+                "ef": 64        # Search effectiveness parameter
+            }
         }
         
         results = collection.search(
@@ -218,12 +241,22 @@ def get_rag_response(question):
         )
 
         retrieved_docs = []
+        st.write("\nSearch Results Debug Info:")
+        
         for hits in results:
+            st.write(f"Raw distances: {hits.distances}")
+            
             for hit in hits:
-                metadata = hit.metadata  # Direct access to metadata
-                if metadata:
-                    similarity = round((1 - float(hit.distance)) * 100, 2)  # Convert distance to similarity score
-                    
+                metadata = hit.metadata
+                raw_distance = float(hit.distance)
+                similarity = calculate_text_similarity(raw_distance)
+                
+                st.write(f"\nResult Details:")
+                st.write(f"Title: {metadata.get('title', 'Untitled')}")
+                st.write(f"Raw distance: {raw_distance}")
+                st.write(f"Calculated similarity: {similarity}%")
+                
+                if similarity >= 30:  # Only include reasonably relevant matches
                     retrieved_docs.append({
                         "title": metadata.get('title', 'Untitled'),
                         "description": metadata.get('description', 'No description available'),
@@ -233,16 +266,20 @@ def get_rag_response(question):
                         "similarity": similarity
                     })
 
+        # Sort by similarity
+        retrieved_docs.sort(key=lambda x: x['similarity'], reverse=True)
+
         if not retrieved_docs:
             return {
-                "response": "I couldn't find any matching products. Try describing what you're looking for differently.",
+                "response": "I couldn't find any closely matching products. Could you please provide more specific details about what you're looking for?",
                 "metadata": None
             }
 
         st.write(f"Found {len(retrieved_docs)} relevant products")
         
+        # Enhanced context building with similarity scores
         context = "\n\n".join([
-            f"Title: {doc['title']}\nDescription: {doc['description']}"
+            f"Title: {doc['title']} (Relevance: {doc['similarity']}%)\nDescription: {doc['description']}"
             for doc in retrieved_docs
         ])
 
@@ -251,7 +288,8 @@ def get_rag_response(question):
                 "role": "system",
                 "content": """You are a professional fashion advisor and AI shopping assistant.
                 Provide stylish, engaging responses about fashion products.
-                Focus on style, trends, and helping customers find the perfect items."""
+                Focus on style, trends, and helping customers find the perfect items.
+                Consider the relevance scores of the products when making recommendations."""
             },
             {
                 "role": "user",
@@ -280,7 +318,6 @@ def get_rag_response(question):
             "response": "I encountered an error while processing your request.",
             "metadata": None
         }
-
 def get_video_id_from_url(video_url):
     """Extract video ID and platform from URL"""
     try:
