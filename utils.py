@@ -218,7 +218,6 @@ def get_rag_response(question):
         st.write("\n=== Debug: Starting Search Process ===")
         st.write(f"Search Query: '{question}'")
         
-        # Generate embedding for query
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         question_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
@@ -227,19 +226,12 @@ def get_rag_response(question):
         
         st.write("\n=== Debug: Embedding Info ===")
         st.write(f"Embedding Length: {len(question_embedding)}")
-        st.write(f"First few values: {question_embedding[:5]}")
         
-        # Configure search
-        st.write("\n=== Debug: Search Configuration ===")
         search_params = {
             "metric_type": "COSINE",
-            "params": {
-                "nprobe": 10
-            }
+            "params": {"nprobe": 10}
         }
-        st.write(f"Search Parameters: {search_params}")
         
-        # Execute search
         results = collection.search(
             data=[question_embedding],
             anns_field="vector",
@@ -257,27 +249,21 @@ def get_rag_response(question):
             st.write(f"Number of hits: {len(hits)}")
             st.write(f"Raw distances array: {hits.distances}")
             
-            st.write("\nProcessing individual hits:")
             for idx, hit in enumerate(hits):
                 metadata = hit.metadata
                 raw_distance = float(hit.distance)
                 
-                # Detailed similarity calculation
+                # New similarity calculation
+                similarity = round((1 - (raw_distance/2)) * 100, 2)
+                
                 st.write(f"\n--- Hit {idx + 1} Details ---")
                 st.write(f"Title: {metadata.get('title', 'Untitled')}")
-                st.write(f"Raw distance from Milvus: {raw_distance}")
+                st.write(f"Raw distance: {raw_distance}")
+                st.write("Similarity Calculation:")
+                st.write(f"1. Distance/2: {raw_distance}/2 = {raw_distance/2}")
+                st.write(f"2. 1 - (Distance/2) = 1 - {raw_distance/2} = {1 - (raw_distance/2)}")
+                st.write(f"3. Final similarity: {similarity}%")
                 
-                # Original formula: ((1 - raw_distance) / 2) * 100
-                step1 = 1 - raw_distance
-                step2 = step1 / 2
-                similarity = round(step2 * 100, 2)
-                
-                st.write("Similarity Calculation Steps:")
-                st.write(f"1. 1 - raw_distance = 1 - {raw_distance} = {step1}")
-                st.write(f"2. Step1 / 2 = {step1} / 2 = {step2}")
-                st.write(f"3. (Step2 * 100) rounded = {step2} * 100 = {similarity}%")
-                
-                # Store the processed result
                 retrieved_docs.append({
                     "title": metadata.get('title', 'Untitled'),
                     "description": metadata.get('description', 'No description available'),
@@ -288,7 +274,7 @@ def get_rag_response(question):
                     "similarity": similarity
                 })
 
-        # Sort results
+        # Sort by similarity (higher is better)
         retrieved_docs.sort(key=lambda x: x['similarity'], reverse=True)
         
         st.write("\n=== Debug: Final Sorted Results ===")
@@ -303,8 +289,7 @@ def get_rag_response(question):
                 "response": "I couldn't find any matching products. Try describing what you're looking for differently.",
                 "metadata": None
             }
-        
-        # Create context and generate response
+
         context = "\n\n".join([
             f"Title: {doc['title']} (Relevance: {doc['similarity']}%)\nDescription: {doc['description']}"
             for doc in retrieved_docs
