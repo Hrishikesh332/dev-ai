@@ -196,33 +196,11 @@ def search_similar_videos(image_file, top_k=5):
         st.error(f"Detailed error: {repr(e)}")
         return None
         
-def calculate_text_similarity(distance):
-    """
-    Calculate similarity score for text embeddings with improved scaling.
-    
-    Args:
-        distance (float): Cosine distance from Milvus
-        
-    Returns:
-        float: Normalized similarity score (0-100)
-    """
-    # Convert distance to base similarity (0 to 1 range)
-    base_similarity = 1 - min(max(distance, 0), 2) / 2
-    
-    # Apply sigmoid scaling to emphasize meaningful similarities
-    # and de-emphasize weak matches
-    alpha = 5.0  # Steepness of the sigmoid curve
-    beta = 0.5   # Midpoint of the sigmoid curve
-    scaled_similarity = 1 / (1 + np.exp(-alpha * (base_similarity - beta)))
-    
-    # Convert to percentage and round
-    return round(scaled_similarity * 100, 2)
-
 def get_rag_response(question):
     """Get response using text embeddings search"""
     try:
         # Generate embedding for the question
-        question_with_context = f"fashion product: {question}"  # Add domain context
+        question_with_context = f"fashion product: {question}"
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         question_embedding = twelvelabs_client.embed.create(
             model_name="Marengo-retrieval-2.7",
@@ -250,8 +228,9 @@ def get_rag_response(question):
         for hits in results:
             for hit in hits:
                 metadata = hit.metadata
-                raw_distance = float(hit.distance)
-                similarity = round((1 - (raw_distance/2)) * 100, 2)
+                # Convert score from [-1,1] to [0,100] range
+                similarity = round((hit.score + 1) * 50, 2)
+                similarity = max(0, min(100, similarity))
                 
                 retrieved_docs.append({
                     "title": metadata.get('title', 'Untitled'),
@@ -259,7 +238,8 @@ def get_rag_response(question):
                     "product_id": metadata.get('product_id', ''),
                     "video_url": metadata.get('video_url', ''),
                     "link": metadata.get('link', ''),
-                    "similarity": similarity
+                    "similarity": similarity,
+                    "raw_score": hit.score
                 })
 
         # Sort by similarity
@@ -307,6 +287,8 @@ def get_rag_response(question):
             "response": "I encountered an error while processing your request.",
             "metadata": None
         }
+
+
 def get_video_id_from_url(video_url):
     """Extract video ID and platform from URL"""
     try:
