@@ -135,23 +135,34 @@ def search_similar_videos(image_file, top_k=5):
         st.write("Searching for similar video segments...")
         search_params = {
             "metric_type": "COSINE",
-            "params": {"nprobe": 10}
+            "params": {
+                "nprobe": 1024,
+                "radius": 0.2,
+                "range_filter": 1.0
+            }
         }
         
         results = collection.search(
             data=[image_embedding],
             anns_field="vector",
             param=search_params,
+            batch_size=2,  # Added batch size
             limit=top_k,
             expr="embedding_type == 'video'",
-            output_fields=["metadata"]
+            output_fields=["metadata", "vector"]  # Added vector for verification
         )
 
         search_results = []
         for hits in results:
+            st.write(f"Found {len(hits)} matches")
+            st.write(f"Distance scores: {hits.distances}")
+            
             for hit in hits:
                 metadata = hit.metadata
-                similarity_score = round((1 - float(hit.distance)) * 100, 2)
+                # Calculate similarity using cosine distance
+                distance = hit.distance
+                # Normalize similarity score to 0-100 range
+                similarity_score = round(max(0, min(100, (1 - distance) * 100)), 2)
                 
                 search_results.append({
                     'Title': metadata.get('title', ''),
@@ -162,12 +173,16 @@ def search_similar_videos(image_file, top_k=5):
                     'Video URL': metadata.get('video_url', ''),
                     'Similarity': f"{similarity_score}%"
                 })
+                
+                # Debug info
+                st.write(f"Raw distance: {distance}")
+                st.write(f"Calculated similarity: {similarity_score}%")
         
-        st.write(f"Found {len(search_results)} matching segments")
         return search_results
         
     except Exception as e:
         st.error(f"Error in visual search: {str(e)}")
+        st.error(f"Detailed error: {repr(e)}")
         return None
 def get_rag_response(question):
     """Get response using text embeddings search"""
