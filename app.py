@@ -70,143 +70,42 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def chat_page():
-    # Page Header
-    st.markdown("""
-        <div style="text-align: center; padding: 2rem 0;">
-            <h1 style="color: #81E831; font-size: 3em; font-weight: 800;">🤵‍♂️ Fashion AI Assistant</h1>
-            <p style="color: #666; font-size: 1.2em;">Your personal style advisor powered by AI</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Navigation buttons
-    st.markdown("""
-        <div class="nav-container">
-            <a href="?page=add_product" class="nav-button">Add Product Data</a>
-            <a href="?page=visual_search" class="nav-button">Visual Search</a>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Initialize session state for messages if not exists
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    # Chat container for all messages
-    chat_container = st.container()
-    
-    with chat_container:
-        # Display all messages in the chat history
-        for message in st.session_state.messages:
-            with st.chat_message(
-                message["role"],
-                avatar="👤" if message["role"] == "user" else "👗"
-            ):
-                if message["role"] == "assistant":
-                    # Display assistant's response
-                    st.markdown(message["content"]["response"])
-                    
-                    # Display product details if metadata exists
-                    if message["content"].get("metadata") and message["content"]["metadata"].get("sources"):
-                        with st.expander("View Product Details 🛍️"):
-                            metadata = message["content"]["metadata"]
-                            
-                            # Display summary of found items
-                            st.markdown(f"""
-                                <div style="margin-bottom: 1rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
-                                    <h4 style="color: #333;">Search Results Summary</h4>
-                                    <p>Found {metadata["total_sources"]} relevant matches:</p>
-                                    <ul>
-                                        <li>{metadata["text_sources"]} product descriptions</li>
-                                        <li>{metadata["video_sources"]} video segments</li>
-                                    </ul>
-                                </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Display each source with detailed information
-                            for source in metadata["sources"]:
-                                render_product_details(source)
-                                st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
-                else:
-                    # Display user's message
-                    st.markdown(message["content"])
-
-    # Chat input for user
-    prompt = st.chat_input("Hey! Ask me anything about fashion - styles, outfits, trends...")
-    
-    if prompt:
-        # Display user's new message
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(prompt)
-        
-        # Add user message to session state
-        st.session_state.messages.append({
-            "role": "user",
-            "content": prompt
-        })
-
-        # Get and display assistant's response
-        with st.chat_message("assistant", avatar="👗"):
-            with st.spinner("Finding perfect matches..."):
-                try:
-                    # Get response from multimodal RAG system
-                    response_data = get_multimodal_rag_response(prompt)
-                    
-                    # Display the text response
-                    st.markdown(response_data["response"])
-                    
-                    # Display product details if available
-                    if response_data.get("metadata") and response_data["metadata"].get("sources"):
-                        with st.expander("View Product Details 🛍️"):
-                            metadata = response_data["metadata"]
-                            
-                            # Summary section
-                            st.markdown(f"""
-                                <div style="margin-bottom: 1rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
-                                    <h4 style="color: #333;">Search Results Summary</h4>
-                                    <p>Found {metadata["total_sources"]} relevant matches:</p>
-                                    <ul>
-                                        <li>{metadata["text_sources"]} product descriptions</li>
-                                        <li>{metadata["video_sources"]} video segments</li>
-                                    </ul>
-                                </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Display each source
-                            for source in metadata["sources"]:
-                                render_product_details(source)
-                                st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"An error occurred: {str(e)}")
-                    response_data = {
-                        "response": "I encountered an error while processing your request. Please try again.",
-                        "metadata": None
-                    }
-        
-        # Add assistant's response to session state
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": response_data
-        })
-    
-    # Sidebar content
-    with st.sidebar:
-        st.markdown("""
-        <div style="padding: 1.5rem; background-color: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h2 style="color: #81E831;">Your Fashion Style Guide</h2>
-            <p style="color: #666;">I can help you with:</p>
-            <ul style="color: #333;">
-                <li>Finding perfect outfits based on your preferences</li>
-                <li>Style recommendations for different occasions</li>
-                <li>Detailed product information and comparisons</li>
-                <li>Personal fashion advice and trend insights</li>
-                <li>Visual search for similar styles</li>
-                <li>Video demonstrations of products</li>
-            </ul>
-            <p style="color: #666; margin-top: 1rem;">
-                Try asking about specific styles, occasions, or product features!
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+def create_video_embed(video_url, start_time=0, end_time=0):
+    """Create an embedded video player with timestamp support"""
+    try:
+        if 'vimeo.com' in video_url:
+            video_id = video_url.split('/')[-1].split('?')[0]
+            start_seconds = str(int(float(start_time)))
+            return f"""
+                <iframe 
+                    width="100%" 
+                    height="315" 
+                    src="https://player.vimeo.com/video/{video_id}#t={start_seconds}s"
+                    frameborder="0" 
+                    allow="autoplay; fullscreen; picture-in-picture" 
+                    allowfullscreen>
+                </iframe>
+            """
+        else:
+            return f"""
+                <video 
+                    width="100%" 
+                    height="315" 
+                    controls 
+                    autoplay
+                    id="video-player">
+                    <source src="{video_url}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <script>
+                    document.getElementById('video-player').addEventListener('loadedmetadata', function() {{
+                        this.currentTime = {start_time};
+                    }});
+                </script>
+            """
+    except Exception as e:
+        st.error(f"Error creating video embed: {str(e)}")
+        return f"<p>Error creating video embed for URL: {video_url}</p>"
 
 def render_product_details(source):
     """Helper function to render product details in a consistent format"""
@@ -241,7 +140,6 @@ def render_product_details(source):
         with col2:
             if source['video_url']:
                 if source.get('type') == 'video':
-                    # Use custom video embed with timestamp
                     st.markdown(
                         create_video_embed(
                             source['video_url'],
@@ -251,9 +149,139 @@ def render_product_details(source):
                         unsafe_allow_html=True
                     )
                 else:
-                    # Regular video display for non-segmented videos
                     st.video(source['video_url'])
 
+def chat_page():
+    """Main chat interface implementation"""
+    st.markdown("""
+        <div style="text-align: center; padding: 2rem 0;">
+            <h1 style="color: #81E831; font-size: 3em; font-weight: 800;">🤵‍♂️ Fashion AI Assistant</h1>
+            <p style="color: #666; font-size: 1.2em;">Your personal style advisor powered by AI</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+        <div class="nav-container">
+            <a href="?page=add_product" class="nav-button">Add Product Data</a>
+            <a href="?page=visual_search" class="nav-button">Visual Search</a>
+        </div>
+    """, unsafe_allow_html=True)
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    chat_container = st.container()
+    
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(
+                message["role"],
+                avatar="👤" if message["role"] == "user" else "👗"
+            ):
+                if message["role"] == "assistant":
+                    st.markdown(message["content"]["response"])
+                    
+                    if message["content"].get("metadata") and message["content"]["metadata"].get("sources"):
+                        with st.expander("View Product Details 🛍️"):
+                            metadata = message["content"]["metadata"]
+                            
+                            # Ensure metadata has required fields with defaults
+                            text_sources = metadata.get("text_sources", 0)
+                            video_sources = metadata.get("video_sources", 0)
+                            total_sources = metadata.get("total_sources", len(metadata["sources"]))
+                            
+                            st.markdown(f"""
+                                <div style="margin-bottom: 1rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
+                                    <h4 style="color: #333;">Search Results Summary</h4>
+                                    <p>Found {total_sources} relevant matches:</p>
+                                    <ul>
+                                        <li>{text_sources} product descriptions</li>
+                                        <li>{video_sources} video segments</li>
+                                    </ul>
+                                </div>
+                            """, unsafe_allow_html=True)
+                            
+                            for source in metadata["sources"]:
+                                render_product_details(source)
+                                st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
+                else:
+                    st.markdown(message["content"])
+
+    prompt = st.chat_input("Hey! Ask me anything about fashion - styles, outfits, trends...")
+    
+    if prompt:
+        with st.chat_message("user", avatar="👤"):
+            st.markdown(prompt)
+        
+        st.session_state.messages.append({
+            "role": "user",
+            "content": prompt
+        })
+
+        with st.chat_message("assistant", avatar="👗"):
+            with st.spinner("Finding perfect matches..."):
+                try:
+                    response_data = get_multimodal_rag_response(prompt)
+                    
+                    # Ensure response_data has all required fields
+                    if response_data.get("metadata") and response_data["metadata"].get("sources"):
+                        metadata = response_data["metadata"]
+                        if "text_sources" not in metadata:
+                            metadata["text_sources"] = sum(1 for s in metadata["sources"] if s.get("type") == "text")
+                        if "video_sources" not in metadata:
+                            metadata["video_sources"] = sum(1 for s in metadata["sources"] if s.get("type") == "video")
+                        if "total_sources" not in metadata:
+                            metadata["total_sources"] = len(metadata["sources"])
+                    
+                    st.markdown(response_data["response"])
+                    
+                    if response_data.get("metadata") and response_data["metadata"].get("sources"):
+                        with st.expander("View Product Details 🛍️"):
+                            metadata = response_data["metadata"]
+                            st.markdown(f"""
+                                <div style="margin-bottom: 1rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
+                                    <h4 style="color: #333;">Search Results Summary</h4>
+                                    <p>Found {metadata["total_sources"]} relevant matches:</p>
+                                    <ul>
+                                        <li>{metadata["text_sources"]} product descriptions</li>
+                                        <li>{metadata["video_sources"]} video segments</li>
+                                    </ul>
+                                </div>
+                            """, unsafe_allow_html=True)
+                            
+                            for source in metadata["sources"]:
+                                render_product_details(source)
+                                st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"An error occurred: {str(e)}")
+                    response_data = {
+                        "response": "I encountered an error while processing your request. Please try again.",
+                        "metadata": None
+                    }
+        
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response_data
+        })
+    
+    with st.sidebar:
+        st.markdown("""
+        <div style="padding: 1.5rem; background-color: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            <h2 style="color: #81E831;">Your Fashion Style Guide</h2>
+            <p style="color: #666;">I can help you with:</p>
+            <ul style="color: #333;">
+                <li>Finding perfect outfits based on your preferences</li>
+                <li>Style recommendations for different occasions</li>
+                <li>Detailed product information and comparisons</li>
+                <li>Personal fashion advice and trend insights</li>
+                <li>Visual search for similar styles</li>
+                <li>Video demonstrations of products</li>
+            </ul>
+            <p style="color: #666; margin-top: 1rem;">
+                Try asking about specific styles, occasions, or product features!
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 def main():
     query_params = st.query_params
     page = query_params.get("page", "chat")[0] if query_params.get("page") else "chat"
