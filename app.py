@@ -107,6 +107,8 @@ def create_video_embed(video_url, start_time=0, end_time=0):
     except Exception as e:
         st.error(f"Error creating video embed: {str(e)}")
         return f"<p>Error creating video embed for URL: {video_url}</p>"
+
+        
 def render_product_details(source):
     """Helper function to render product details in a consistent format"""
     with st.container():
@@ -114,98 +116,53 @@ def render_product_details(source):
         
         with col1:
             is_video = source.get("type") == "video"
+            title = source.get('title', 'No Title')
+            similarity = source.get('similarity', 0)
+            description = source.get('description', 'No description available')
+            product_id = source.get('product_id', 'N/A')
             
-            # Main content card
-            st.markdown(f"""
-                <div class="product-card">
-                    <h4 class="product-title">{source.get('title', 'No Title')}</h4>
+            html_content = f"""
+                <div style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;">
+                    <h4 style="color: #81E831; font-size: 1.4rem; margin-bottom: 1rem; font-weight: 600;">{title}</h4>
                     
-                    <div class="similarity-bar">
-                        <div class="bar" style="width: {source.get('similarity', 0)}%"></div>
-                        <p class="score">Similarity Score: {source.get('similarity', 0)}%</p>
+                    <div style="margin: 1rem 0;">
+                        <div style="height: 8px; background: linear-gradient(90deg, #81E831 {similarity}%, #f1f1f1 {similarity}%); border-radius: 4px; margin-bottom: 0.5rem;"></div>
+                        <p style="color: #666; font-size: 0.9rem;">Similarity Score: {similarity}%</p>
                     </div>
                     
-                    <p class="description">{source.get('description', 'No description available')}</p>
+                    <p style="color: #333; font-size: 1.1em; line-height: 1.5; margin: 1rem 0;">{description}</p>
                     
-                    <div class="product-meta">
-                        <p>Product ID: {source.get('product_id', 'N/A')}</p>
-                        {f'<p>Time: {source.get("start_time", 0):.1f}s - {source.get("end_time", 0):.1f}s</p>' if is_video else ''}
+                    <div style="color: #666; font-size: 0.9rem; margin: 1rem 0;">
+                        <p style="margin: 0.3rem 0;">Product ID: {product_id}</p>
+                        {f'<p style="margin: 0.3rem 0;">Time: {source.get("start_time", 0):.1f}s - {source.get("end_time", 0):.1f}s</p>' if is_video else ''}
                     </div>
-                    
-                    {f'<a href="{source["link"]}" target="_blank" class="store-button">View on Store</a>' if source.get('link') else ''}
-                </div>
-            """, unsafe_allow_html=True)
+            """
             
-            # CSS for the card
-            st.markdown("""
-                <style>
-                    .product-card {
-                        background: white;
-                        padding: 1.5rem;
-                        border-radius: 10px;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-                        border: 1px solid #f0f0f0;
-                    }
-                    
-                    .product-title {
-                        color: #81E831;
-                        font-size: 1.4rem;
-                        margin-bottom: 1rem;
-                        font-weight: 600;
-                    }
-                    
-                    .similarity-bar {
-                        margin: 1rem 0;
-                    }
-                    
-                    .bar {
-                        height: 8px;
-                        background: #81E831;
-                        border-radius: 4px;
-                        margin-bottom: 0.5rem;
-                    }
-                    
-                    .score {
-                        color: #666;
-                        font-size: 0.9rem;
-                    }
-                    
-                    .description {
-                        color: #333;
-                        font-size: 1.1em;
-                        line-height: 1.5;
-                        margin: 1rem 0;
-                    }
-                    
-                    .product-meta {
-                        color: #666;
-                        font-size: 0.9rem;
-                        margin: 1rem 0;
-                    }
-                    
-                    .product-meta p {
-                        margin: 0.3rem 0;
-                    }
-                    
-                    .store-button {
-                        display: inline-block;
-                        background-color: #81E831;
-                        color: white;
-                        padding: 10px 20px;
-                        border-radius: 20px;
-                        text-decoration: none;
-                        font-weight: 500;
-                        margin-top: 1rem;
-                        transition: all 0.3s ease;
-                    }
-                    
-                    .store-button:hover {
-                        background-color: #6bc428;
-                        text-decoration: none;
-                        color: white;
-                    }
-                </style>
-            """, unsafe_allow_html=True)
+            if source.get('link'):
+                html_content += f"""
+                    <div style="margin-top: 1rem;">
+                        <a href="{source['link']}" 
+                           target="_blank" 
+                           style="
+                               display: inline-block;
+                               background-color: #81E831;
+                               color: white !important;
+                               padding: 10px 20px;
+                               border-radius: 20px;
+                               text-decoration: none;
+                               font-weight: 500;
+                               transition: all 0.3s ease;
+                           "
+                           onmouseover="this.style.backgroundColor='#6bc428'"
+                           onmouseout="this.style.backgroundColor='#81E831'">
+                            View on Store
+                        </a>
+                    </div>
+                """
+            
+            html_content += "</div>"
+            
+            st.markdown(html_content, unsafe_allow_html=True)
         
         with col2:
             if source.get('video_url'):
@@ -227,13 +184,22 @@ def render_results_section(response_data):
         with st.expander("View Product Details 🛍️", expanded=True):
             metadata = response_data["metadata"]
             
+            # Summary section
+            st.markdown(f"""
+                <div style="margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                    <h4 style="color: #333; margin-bottom: 0.5rem;">Found {metadata["total_sources"]} relevant matches:</h4>
+                    <p style="color: #666;">• {metadata["text_sources"]} product descriptions</p>
+                    <p style="color: #666;">• {metadata["video_sources"]} video segments</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
             # Text results
             text_sources = [s for s in metadata["sources"] if s.get("type") == "text"]
             if text_sources:
                 st.markdown("### 📝 Retrieved Products")
                 for source in text_sources:
                     render_product_details(source)
-                    st.markdown("<hr>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 2rem 0; opacity: 0.2;'>", unsafe_allow_html=True)
             
             # Video results
             video_sources = [s for s in metadata["sources"] if s.get("type") == "video"]
@@ -241,7 +207,7 @@ def render_results_section(response_data):
                 st.markdown("### 📹 Matching Product Videos")
                 for source in video_sources:
                     render_product_details(source)
-                    st.markdown("<hr>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 2rem 0; opacity: 0.2;'>", unsafe_allow_html=True)
                     
 def chat_page():
     """Main chat interface implementation"""
