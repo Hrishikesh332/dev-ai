@@ -210,7 +210,7 @@ def get_multimodal_rag_response(question):
             data=[question_embedding],
             anns_field="vector",
             param=search_params,
-            limit=2,  # Increased to get more context
+            limit=2,
             expr="embedding_type == 'text'",
             output_fields=["metadata"]
         )
@@ -220,7 +220,7 @@ def get_multimodal_rag_response(question):
             data=[question_embedding],
             anns_field="vector",
             param=search_params,
-            limit=3,  # Get top 3 video segments
+            limit=3,
             expr="embedding_type == 'video'",
             output_fields=["metadata"]
         )
@@ -265,39 +265,26 @@ def get_multimodal_rag_response(question):
                     "type": "video"
                 })
 
-        # Combine and sort all results
-        all_docs = text_docs + video_docs
-        all_docs.sort(key=lambda x: x['similarity'], reverse=True)
-
-        if not all_docs:
-            return {
-                "response": "I couldn't find any matching products. Try describing what you're looking for differently.",
-                "metadata": None
-            }
-
-        # Create context from both text and video results
+        # Create context only from text results for LLM
         text_context = "\n\n".join([
-            f"Title: {doc['title']} (Relevance: {doc['similarity']}%)\nDescription: {doc['description']}"
+            f"Product: {doc['title']}\nDescription: {doc['description']}\nLink: {doc['link']}"
             for doc in text_docs
         ])
-
-        video_context = "\n\n".join([
-            f"Video Segment: {doc['title']} (Time: {doc['start_time']:.1f}s - {doc['end_time']:.1f}s)\nContext: {doc['description']}"
-            for doc in video_docs
-        ])
-
-        combined_context = f"Text Information:\n{text_context}\n\nVideo Information:\n{video_context}"
 
         messages = [
             {
                 "role": "system",
-                "content": """You are a professional fashion advisor and AI shopping assistant with access to both text and video content.
-                Provide comprehensive responses that reference both product descriptions and specific video segments when relevant.
-                Focus on style, trends, and helping customers find the perfect items while highlighting visual elements from videos when applicable."""
+                "content": """You are a professional fashion advisor and AI shopping assistant.
+                Organize your response in the following format:
+                1. First, provide a brief direct answer to the user's query
+                2. Then, describe the retrieved products that match their request
+                3. Finally, provide any additional style advice or suggestions
+                
+                Make your response engaging and helpful while maintaining this clear structure."""
             },
             {
                 "role": "user",
-                "content": f"Question: {question}\n\nContext: {combined_context}"
+                "content": f"Question: {question}\n\nAvailable Products:\n{text_context}"
             }
         ]
 
@@ -306,11 +293,14 @@ def get_multimodal_rag_response(question):
             messages=messages
         )
 
+        # Format the response with clear sections
+        response_text = chat_response.choices[0].message.content
+
         return {
-            "response": chat_response.choices[0].message.content,
+            "response": response_text,
             "metadata": {
-                "sources": all_docs,
-                "total_sources": len(all_docs),
+                "sources": text_docs + video_docs,
+                "total_sources": len(text_docs) + len(video_docs),
                 "text_sources": len(text_docs),
                 "video_sources": len(video_docs)
             }
