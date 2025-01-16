@@ -112,41 +112,31 @@ def render_product_details(source):
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            # Ensure link is properly formatted
-            link_button = ""
-            if source.get('link') and isinstance(source['link'], str) and source['link'].strip():
-                link_button = f"""
-                    <a href="{source['link']}" target="_blank" class="store-link">View on Store</a>
-                """
-            
-            section_title = "📹 Video Segment" if source.get("type") == "video" else "📝 Product Details"
-            
-            # Add CSS for the store link button inline
-            st.markdown("""
-                <style>
-                    .store-link {
-                        display: inline-block !important;
-                        background-color: #81E831 !important;
-                        color: white !important;
-                        padding: 8px 24px !important;
-                        border-radius: 25px !important;
-                        text-decoration: none !important;
-                        margin-top: 16px !important;
-                        font-weight: 500 !important;
-                        transition: all 0.3s ease !important;
-                    }
-                    .store-link:hover {
-                        background-color: #6bc428 !important;
-                        color: white !important;
-                        text-decoration: none !important;
-                    }
-                </style>
-            """, unsafe_allow_html=True)
+            # Store button HTML - simplified and moved outside the card
+            link_html = ""
+            if source.get('link'):
+                link_html = (
+                    '<div style="padding-top: 1rem;">'
+                    f'<a href="{source["link"]}" '
+                    'target="_blank" '
+                    'style="'
+                    'background-color: #81E831;'
+                    'color: white;'
+                    'padding: 10px 20px;'
+                    'border-radius: 20px;'
+                    'text-decoration: none;'
+                    'font-weight: 500;'
+                    'display: inline-block;'
+                    '">'
+                    'View on Store'
+                    '</a>'
+                    '</div>'
+                )
 
             # Main content HTML
             content_html = f"""
-                <div class="product-card" style="background-color: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                    <h3 style="color: #333; margin-bottom: 1rem;">{section_title}</h3>
+                <div style="background-color: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                    <h3 style="color: #333; margin-bottom: 1rem;">{"📹 Video Segment" if source.get("type") == "video" else "📝 Product Details"}</h3>
                     <h4 style="color: #81E831;">{source['title']}</h4>
                     <div style="margin: 1rem 0;">
                         <div style="background: linear-gradient(90deg, #81E831 {source['similarity']}%, #f1f1f1 {source['similarity']}%); 
@@ -156,10 +146,11 @@ def render_product_details(source):
                     <p style="color: #333; font-size: 1.1em;">{source['description']}</p>
                     <p style="color: #666;">Product ID: {source['product_id']}</p>
                     {f'<p style="color: #666;">Segment Time: {source["start_time"]:.1f}s - {source["end_time"]:.1f}s</p>' if source.get("type") == "video" else ""}
-                    {link_button}
+                    {link_html}
                 </div>
             """
             
+            # Render the content
             st.markdown(content_html, unsafe_allow_html=True)
         
         with col2:
