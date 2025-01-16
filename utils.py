@@ -21,8 +21,9 @@ connections.connect(uri=URL, token=TOKEN)
 collection = Collection(COLLECTION_NAME)
 collection.load()
 
+
+# Generate text and segmented video embeddings for a product
 def generate_embedding(product_info):
-    """Generate text and segmented video embeddings for a product"""
     try:
         st.write("Starting embedding generation process...")
         st.write(f"Processing product: {product_info['title']}")
@@ -30,9 +31,8 @@ def generate_embedding(product_info):
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         st.write("TwelveLabs client initialized successfully")
         
-        # Generate text embedding with better context
         st.write("Attempting to generate text embedding...")
-        # Include full product context in embedding generation
+
         text = f"product type: {product_info['title']}. " \
                f"product description: {product_info['desc']}. " \
                f"product category: fashion apparel."
@@ -44,6 +44,7 @@ def generate_embedding(product_info):
             text=text
         ).text_embedding.segments[0].embeddings_float
         st.write("Text embedding generated successfully")
+
         
         # Create and wait for video embedding task
         st.write("Creating video embedding task...")
@@ -90,10 +91,9 @@ def generate_embedding(product_info):
         return None, str(e)
 
 
+# Insert text and all video segment embeddings
 def insert_embeddings(embeddings_data, product_info):
-    """Insert text and all video segment embeddings"""
     try:
-        # Create base metadata
         metadata = {
             "product_id": product_info['product_id'],
             "title": product_info['title'],
@@ -129,8 +129,10 @@ def insert_embeddings(embeddings_data, product_info):
         st.error(f"Error inserting embeddings: {str(e)}")
         return False
 
+
+# Search for similar video segments using image query
 def search_similar_videos(image_file, top_k=5):
-    """Search for similar video segments using image query"""
+    
     try:
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
         image_embedding = twelvelabs_client.embed.create(
@@ -181,9 +183,11 @@ def search_similar_videos(image_file, top_k=5):
         
     except Exception as e:
         return None
-        
+
+
+# Get response using text embeddings search
 def get_rag_response(question):
-    """Get response using text embeddings search"""
+
     try:
         # Generate embedding for the question
         question_with_context = f"fashion product: {question}"
@@ -205,7 +209,7 @@ def get_rag_response(question):
             data=[question_embedding],
             anns_field="vector",
             param=search_params,
-            limit=2,
+            limit=1,
             expr="embedding_type == 'text'",
             output_fields=["metadata"]
         )
@@ -274,9 +278,9 @@ def get_rag_response(question):
             "metadata": None
         }
 
-
+# Extract video ID and platform from URL
 def get_video_id_from_url(video_url):
-    """Extract video ID and platform from URL"""
+
     try:
         if 'vimeo.com' in video_url:
             video_id = video_url.split('/')[-1].split('?')[0]
@@ -287,15 +291,15 @@ def get_video_id_from_url(video_url):
         st.error(f"Error processing video URL: {str(e)}")
         return None, None
 
+# Format time in seconds to URL compatible format
 def format_time_for_url(time_in_seconds):
-    """Format time in seconds to URL compatible format"""
     try:
         return str(int(float(time_in_seconds)))
     except:
         return "0"
 
 def create_video_embed(video_url, start_time=0, end_time=0):
-    """Create video embed HTML"""
+
     try:
         video_id, platform = get_video_id_from_url(video_url)
         start_seconds = format_time_for_url(start_time)
