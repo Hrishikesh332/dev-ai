@@ -185,6 +185,15 @@ def search_similar_videos(image_file, top_k=5):
         return None
 
 def get_multimodal_rag_response(question):
+    """
+    Generate a multimodal response using both text and video embeddings.
+    
+    Args:
+        question (str): The user's query about fashion products
+        
+    Returns:
+        dict: Response containing assistant's reply and metadata about found products
+    """
     try:
         # Initialize TwelveLabs client
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
@@ -210,7 +219,7 @@ def get_multimodal_rag_response(question):
             data=[question_embedding],
             anns_field="vector",
             param=search_params,
-            limit=2,
+            limit=2,  # Get top 2 text matches
             expr="embedding_type == 'text'",
             output_fields=["metadata"]
         )
@@ -220,7 +229,7 @@ def get_multimodal_rag_response(question):
             data=[question_embedding],
             anns_field="vector",
             param=search_params,
-            limit=3,
+            limit=3,  # Get top 3 video segments
             expr="embedding_type == 'video'",
             output_fields=["metadata"]
         )
@@ -265,39 +274,58 @@ def get_multimodal_rag_response(question):
                     "type": "video"
                 })
 
-        # Create context only from text results for LLM
+        # If no results found, return early
+        if not text_docs and not video_docs:
+            return {
+                "response": "I couldn't find any matching products. Try describing what you're looking for differently.",
+                "metadata": None
+            }
+
+        # Create context from text results only for LLM
         text_context = "\n\n".join([
             f"Product: {doc['title']}\nDescription: {doc['description']}\nLink: {doc['link']}"
             for doc in text_docs
         ])
 
+        # Create messages for chat completion
         messages = [
             {
                 "role": "system",
                 "content": """You are a professional fashion advisor and AI shopping assistant.
                 Organize your response in the following format:
-                1. First, provide a brief direct answer to the user's query
-                2. Then, describe the retrieved products that match their request
-                3. Finally, provide any additional style advice or suggestions
+
+                1. First, provide a brief, direct answer to the user's query
+                2. Then, describe any relevant products found that match their request, including:
+                   - Product name and key features
+                   - Why this product matches their needs
+                   - Style suggestions for how to wear or use the item
+                3. Finally, provide any additional style advice or recommendations
                 
-                Make your response engaging and helpful while maintaining this clear structure."""
+                Keep your response engaging and natural while maintaining this clear structure.
+                Focus on being helpful and specific rather than promotional."""
             },
             {
                 "role": "user",
-                "content": f"Question: {question}\n\nAvailable Products:\n{text_context}"
+                "content": f"""Query: {question}
+
+Available Products:
+{text_context}
+
+Please provide fashion advice and product recommendations based on these options."""
             }
         ]
 
+        # Get response from OpenAI
         chat_response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=messages
+            messages=messages,
+            temperature=0.7,
+            max_tokens=500
         )
 
-        # Format the response with clear sections
-        response_text = chat_response.choices[0].message.content
-
+        # Format and return response
         return {
-            "response": response_text,
+            "response": chat_response.choices[0].message.content,
             "metadata": {
                 "sources": text_docs + video_docs,
                 "total_sources": len(text_docs) + len(video_docs),
@@ -309,7 +337,7 @@ def get_multimodal_rag_response(question):
     except Exception as e:
         st.error(f"Error in multimodal RAG: {str(e)}")
         return {
-            "response": "I encountered an error while processing your request.",
+            "response": "I encountered an error while processing your request. Please try again.",
             "metadata": None
         }
 
