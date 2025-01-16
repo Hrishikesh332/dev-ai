@@ -112,12 +112,14 @@ def render_product_details(source):
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            # Store button HTML - simplified and moved outside the card
-            link_html = ""
-            if source.get('link'):
-                link_html = (
-                    '<div style="padding-top: 1rem;">'
-                    f'<a href="{source["link"]}" '
+            section_title = "📹 Video Segment" if source.get("type") == "video" else "📝 Product Details"
+            
+            # Define store button HTML
+            store_button = ''
+            if source.get('link') and source['link'].strip():
+                store_button = (
+                    '<a '
+                    f'href="{source["link"]}" '
                     'target="_blank" '
                     'style="'
                     'background-color: #81E831;'
@@ -127,30 +129,31 @@ def render_product_details(source):
                     'text-decoration: none;'
                     'font-weight: 500;'
                     'display: inline-block;'
+                    'margin-top: 15px;'
+                    'box-shadow: 0 2px 4px rgba(0,0,0,0.1);'
+                    'transition: all 0.3s ease;'
                     '">'
                     'View on Store'
                     '</a>'
-                    '</div>'
                 )
 
-            # Main content HTML
+            # Combine into main content HTML
             content_html = f"""
                 <div style="background-color: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                    <h3 style="color: #333; margin-bottom: 1rem;">{"📹 Video Segment" if source.get("type") == "video" else "📝 Product Details"}</h3>
-                    <h4 style="color: #81E831;">{source['title']}</h4>
+                    <h3 style="color: #333; margin-bottom: 1rem;">{section_title}</h3>
+                    <h4 style="color: #81E831;">{source.get('title', 'No Title')}</h4>
                     <div style="margin: 1rem 0;">
-                        <div style="background: linear-gradient(90deg, #81E831 {source['similarity']}%, #f1f1f1 {source['similarity']}%); 
+                        <div style="background: linear-gradient(90deg, #81E831 {source.get('similarity', 0)}%, #f1f1f1 {source.get('similarity', 0)}%); 
                              height: 6px; border-radius: 3px; margin-bottom: 0.5rem;"></div>
-                        <p style="color: #666;">Similarity Score: {source['similarity']}%</p>
+                        <p style="color: #666;">Similarity Score: {source.get('similarity', 0)}%</p>
                     </div>
-                    <p style="color: #333; font-size: 1.1em;">{source['description']}</p>
-                    <p style="color: #666;">Product ID: {source['product_id']}</p>
-                    {f'<p style="color: #666;">Segment Time: {source["start_time"]:.1f}s - {source["end_time"]:.1f}s</p>' if source.get("type") == "video" else ""}
-                    {link_html}
+                    <p style="color: #333; font-size: 1.1em;">{source.get('description', 'No description available')}</p>
+                    <p style="color: #666;">Product ID: {source.get('product_id', 'N/A')}</p>
+                    {f'<p style="color: #666;">Segment Time: {source.get("start_time", 0):.1f}s - {source.get("end_time", 0):.1f}s</p>' if source.get("type") == "video" else ""}
+                    {store_button}
                 </div>
             """
             
-            # Render the content
             st.markdown(content_html, unsafe_allow_html=True)
         
         with col2:
