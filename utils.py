@@ -184,6 +184,144 @@ def search_similar_videos(image_file, top_k=5):
     except Exception as e:
         return None
 
+def get_multimodal_rag_response(question):
+    try:
+        # Initialize TwelveLabs client
+        twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
+        
+        # Generate embedding for the question with fashion context
+        question_with_context = f"fashion product: {question}"
+        question_embedding = twelvelabs_client.embed.create(
+            model_name="Marengo-retrieval-2.7",
+            text=question_with_context
+        ).text_embedding.segments[0].embeddings_float
+        
+        # Define search parameters
+        search_params = {
+            "metric_type": "COSINE",
+            "params": {
+                "nprobe": 1024,
+                "ef": 64
+            }
+        }
+        
+        # Search for relevant text embeddings
+        text_results = collection.search(
+            data=[question_embedding],
+            anns_field="vector",
+            param=search_params,
+            limit=2,  # Increased to get more context
+            expr="embedding_type == 'text'",
+            output_fields=["metadata"]
+        )
+        
+        # Search for relevant video segments
+        video_results = collection.search(
+            data=[question_embedding],
+            anns_field="vector",
+            param=search_params,
+            limit=3,  # Get top 3 video segments
+            expr="embedding_type == 'video'",
+            output_fields=["metadata"]
+        )
+
+        # Process text results
+        text_docs = []
+        for hits in text_results:
+            for hit in hits:
+                metadata = hit.metadata
+                similarity = round((hit.score + 1) * 50, 2)
+                similarity = max(0, min(100, similarity))
+                
+                text_docs.append({
+                    "title": metadata.get('title', 'Untitled'),
+                    "description": metadata.get('description', 'No description available'),
+                    "product_id": metadata.get('product_id', ''),
+                    "video_url": metadata.get('video_url', ''),
+                    "link": metadata.get('link', ''),
+                    "similarity": similarity,
+                    "raw_score": hit.score,
+                    "type": "text"
+                })
+
+        # Process video results
+        video_docs = []
+        for hits in video_results:
+            for hit in hits:
+                metadata = hit.metadata
+                similarity = round((hit.score + 1) * 50, 2)
+                similarity = max(0, min(100, similarity))
+                
+                video_docs.append({
+                    "title": metadata.get('title', 'Untitled'),
+                    "description": metadata.get('description', 'No description available'),
+                    "product_id": metadata.get('product_id', ''),
+                    "video_url": metadata.get('video_url', ''),
+                    "link": metadata.get('link', ''),
+                    "similarity": similarity,
+                    "raw_score": hit.score,
+                    "start_time": metadata.get('start_time', 0),
+                    "end_time": metadata.get('end_time', 0),
+                    "type": "video"
+                })
+
+        # Combine and sort all results
+        all_docs = text_docs + video_docs
+        all_docs.sort(key=lambda x: x['similarity'], reverse=True)
+
+        if not all_docs:
+            return {
+                "response": "I couldn't find any matching products. Try describing what you're looking for differently.",
+                "metadata": None
+            }
+
+        # Create context from both text and video results
+        text_context = "\n\n".join([
+            f"Title: {doc['title']} (Relevance: {doc['similarity']}%)\nDescription: {doc['description']}"
+            for doc in text_docs
+        ])
+
+        video_context = "\n\n".join([
+            f"Video Segment: {doc['title']} (Time: {doc['start_time']:.1f}s - {doc['end_time']:.1f}s)\nContext: {doc['description']}"
+            for doc in video_docs
+        ])
+
+        combined_context = f"Text Information:\n{text_context}\n\nVideo Information:\n{video_context}"
+
+        messages = [
+            {
+                "role": "system",
+                "content": """You are a professional fashion advisor and AI shopping assistant with access to both text and video content.
+                Provide comprehensive responses that reference both product descriptions and specific video segments when relevant.
+                Focus on style, trends, and helping customers find the perfect items while highlighting visual elements from videos when applicable."""
+            },
+            {
+                "role": "user",
+                "content": f"Question: {question}\n\nContext: {combined_context}"
+            }
+        ]
+
+        chat_response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=messages
+        )
+
+        return {
+            "response": chat_response.choices[0].message.content,
+            "metadata": {
+                "sources": all_docs,
+                "total_sources": len(all_docs),
+                "text_sources": len(text_docs),
+                "video_sources": len(video_docs)
+            }
+        }
+    
+    except Exception as e:
+        st.error(f"Error in multimodal RAG: {str(e)}")
+        return {
+            "response": "I encountered an error while processing your request.",
+            "metadata": None
+        }
 
 # Get response using text embeddings search
 def get_rag_response(question):
