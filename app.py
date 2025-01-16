@@ -85,6 +85,7 @@ def render_product_details(source):
                 </div>
                 <p style="color: #333; font-size: 1.1em;">{source['description']}</p>
                 <p style="color: #666;">Product ID: {source['product_id']}</p>
+                {f'<p style="color: #666;">Segment Time: {source["start_time"]:.1f}s - {source["end_time"]:.1f}s</p>' if source.get("type") == "video" else ""}
                 <a href="{source['link']}" target="_blank" style="
                     display: inline-block;
                     background: #81E831;
@@ -100,7 +101,15 @@ def render_product_details(source):
         
         with col2:
             if source['video_url']:
-                st.video(source['video_url'])
+                if source.get('type') == 'video':
+                    # Use custom video embed with start time
+                    st.markdown(create_video_embed(
+                        source['video_url'], 
+                        source['start_time'], 
+                        source['end_time']
+                    ), unsafe_allow_html=True)
+                else:
+                    st.video(source['video_url'])
 
 def chat_page():
     st.markdown("""
@@ -129,7 +138,17 @@ def chat_page():
                     st.markdown(message["content"]["response"])
                     if message["content"]["metadata"]:
                         with st.expander("View Product Details 🛍️"):
-                            for source in message["content"]["metadata"]["sources"]:
+                            st.markdown(f"""
+                                <div style="margin-bottom: 1rem;">
+                                    <p>Found {response_data["metadata"]["total_sources"]} matches:</p>
+                                    <ul>
+                                        <li>{response_data["metadata"]["text_sources"]} text descriptions</li>
+                                        <li>{response_data["metadata"]["video_sources"]} video segments</li>
+                                    </ul>
+                                </div>
+                            """, unsafe_allow_html=True)
+                            
+                            for source in response_data["metadata"]["sources"]:
                                 render_product_details(source)
                                 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
                 else:
