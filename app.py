@@ -35,7 +35,7 @@ st.markdown("""
     }
     
     .nav-button {
-        background-color: #4CAF50 !important;
+        background-color: #81E831 !important;  /* Matching pink from app */
         color: white !important;
         border-radius: 4px !important;
         border: none !important;
@@ -44,8 +44,10 @@ st.markdown("""
     }
     
     .nav-button:hover {
-        background-color: #45a049 !important;
+        background-color: #ff3d60 !important;  /* Slightly darker shade of the same pink */
+        opacity: 0.9;
     }
+    
     
     .nav-container {
         position: fixed;
@@ -54,6 +56,16 @@ st.markdown("""
         display: flex;
         gap: 10px;
         z-index: 1000;
+    }
+    .stButton button {
+        background-color: #81E831 !important;
+        color: white !important;
+        border: none !important;
+    }
+    
+    .stButton button:hover {
+        background-color: #eeecec !important;
+        opacity: 0.9;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -65,9 +77,9 @@ def render_product_details(source):
         with col1:
             st.markdown(f"""
             <div class="product-card">
-                <h3 style="color: #FF4B6B;">{source['title']}</h3>
+                <h3 style="color: #81E831;">{source['title']}</h3>
                 <div style="margin: 1rem 0;">
-                    <div style="background: linear-gradient(90deg, #FF4B6B {source['similarity']}%, #f1f1f1 {source['similarity']}%); 
+                    <div style="background: linear-gradient(90deg, #81E831 {source['similarity']}%, #f1f1f1 {source['similarity']}%); 
                          height: 6px; border-radius: 3px; margin-bottom: 0.5rem;"></div>
                     <p style="color: #666;">Similarity Score: {source['similarity']}%</p>
                 </div>
@@ -75,7 +87,7 @@ def render_product_details(source):
                 <p style="color: #666;">Product ID: {source['product_id']}</p>
                 <a href="{source['link']}" target="_blank" style="
                     display: inline-block;
-                    background: #FF4B6B;
+                    background: #81E831;
                     color: white;
                     padding: 0.5rem 1.5rem;
                     border-radius: 25px;
@@ -93,12 +105,11 @@ def render_product_details(source):
 def chat_page():
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
-            <h1 style="color: #FF4B6B; font-size: 3em; font-weight: 800;">🤵‍♂️ Fashion AI Assistant</h1>
+            <h1 style="color: #81E831; font-size: 3em; font-weight: 800;">🤵‍♂️ Fashion AI Assistant</h1>
             <p style="color: #666; font-size: 1.2em;">Your personal style advisor powered by AI</p>
         </div>
     """, unsafe_allow_html=True)
-    
-    # Navigation buttons
+
     st.markdown("""
         <div class="nav-container">
             <a href="add_product_page" class="nav-button">Add Product Data</a>
@@ -124,7 +135,7 @@ def chat_page():
                 else:
                     st.markdown(message["content"])
 
-    prompt = st.chat_input("Ask about fashion products...")
+    prompt = st.chat_input("Hey! Ask me anything about fashion - styles, outfits, trends...")
     
     if prompt:
         with st.chat_message("user", avatar="👤"):
@@ -148,7 +159,7 @@ def chat_page():
     with st.sidebar:
         st.markdown("""
         <div style="padding: 1.5rem; background-color: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h2 style="color: #FF4B6B;">Your Fashion Style Guide</h2>
+            <h2 style="color: #81E831;">Your Fashion Style Guide</h2>
             <p style="color: #666;">How can I help you with, There are various things I can help - </p>
             <ul style="color: #333;">
                 <li>Finding perfect outfits</li>
@@ -160,7 +171,6 @@ def chat_page():
         """, unsafe_allow_html=True)
 
 def main():
-    # Get the current page from query parameters
     query_params = st.query_params
     page = query_params.get("page", "chat")[0] if query_params.get("page") else "chat"
 
