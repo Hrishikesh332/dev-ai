@@ -207,7 +207,9 @@ def create_suggestion_button(text):
         </button>
     """
 def render_suggestions():
-    """Render suggestion buttons for chat prompts"""
+    st.markdown("### Try asking about:")
+    
+    # Define your example queries
     suggestions = [
         "Show me black dresses for a party",
         "I'm looking for men's black t-shirts",
@@ -217,57 +219,30 @@ def render_suggestions():
         "Can you suggest bridal wear?"
     ]
 
-    buttons_html = ""
-    for suggestion in suggestions:
-        escaped_suggestion = suggestion.replace("'", "\\'")
-        buttons_html += f"""
-            <button
-                onclick="document.querySelector('textarea').value='{escaped_suggestion}'; document.querySelector('textarea').dispatchEvent(new Event('input', {{ bubbles: true }}));"
-                style="
-                    background: transparent;
-                    border: 1px solid #81E831;
-                    color: #81E831;
-                    padding: 8px 16px;
-                    margin: 5px;
-                    border-radius: 20px;
-                    cursor: pointer;
-                    font-size: 0.9em;
-                    transition: all 0.3s ease;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    max-width: 300px;
-                "
-                onmouseover="this.style.background='#81E831'; this.style.color='white';"
-                onmouseout="this.style.background='transparent'; this.style.color='#81E831';"
-            >
-                {escaped_suggestion}
-            </button>
-        """
-
-    st.markdown(f"""
-        <div style="
-            padding: 1.5rem;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            margin-bottom: 1rem;
-        ">
-            <p style="
-                color: #666;
-                margin-bottom: 1rem;
-                font-size: 1em;
-            ">Try asking about:</p>
-            <div style="
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-                align-items: center;
-            ">
-                {buttons_html}
-            </div>
-        </div>
+    # Style for the container
+    st.markdown("""
+        <style>
+        .suggestion-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        </style>
     """, unsafe_allow_html=True)
+
+    # Create columns for better layout
+    cols = st.columns(3)
+    
+    # Distribute suggestions across columns
+    for idx, suggestion in enumerate(suggestions):
+        col_idx = idx % 3
+        with cols[col_idx]:
+            if st.button(suggestion, key=f"suggestion_{idx}", use_container_width=True):
+                # When button is clicked, set it as the query
+                st.session_state.query = suggestion
+                # Force a rerun to update the chat
+                st.rerun()
     
 def render_results_section(response_data):
     """Helper function to render results in the chat interface"""
@@ -304,7 +279,12 @@ def render_results_section(response_data):
                     st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
                     
 def chat_page():
-    """Main chat interface implementation"""
+    # Initialize session state
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "query" not in st.session_state:
+        st.session_state.query = ""
+
     # Page Header
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
@@ -321,120 +301,39 @@ def chat_page():
         </div>
     """, unsafe_allow_html=True)
 
-    # Initialize session state for messages
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    # Add suggestions if no messages yet
+    # Show suggestions if no messages yet
     if not st.session_state.messages:
         render_suggestions()
-        
-    # Chat container for all messages
-    chat_container = st.container()
-    
-    with chat_container:
-        # Display all messages in the chat history
-        for message in st.session_state.messages:
-            with st.chat_message(
-                message["role"],
-                avatar="👤" if message["role"] == "user" else "👗"
-            ):
-                if message["role"] == "assistant":
-                    # Display assistant's text response
-                    st.markdown(message["content"]["response"])
-                    
-                    # Display product details if metadata exists
-                    if message["content"].get("metadata") and message["content"]["metadata"].get("sources"):
-                        with st.expander("View Product Details 🛍️", expanded=True):
-                            metadata = message["content"]["metadata"]
-                            
-                            # Display summary statistics
-                            st.markdown(f"""
-                                <div style="margin-bottom: 2rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
-                                    <h4 style="color: #333;">Search Results Summary</h4>
-                                    <p>Found {metadata["total_sources"]} relevant matches:</p>
-                                    <ul>
-                                        <li>{metadata["text_sources"]} product descriptions</li>
-                                        <li>{metadata["video_sources"]} video segments</li>
-                                    </ul>
-                                </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Display text results first
-                            text_sources = [s for s in metadata["sources"] if s.get("type") == "text"]
-                            if text_sources:
-                                st.markdown("### 📝 Retrieved Products")
-                                for source in text_sources:
-                                    render_product_details(source)
-                                    st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
-                            
-                            # Display video results second
-                            video_sources = [s for s in metadata["sources"] if s.get("type") == "video"]
-                            if video_sources:
-                                st.markdown("### 📹 Matching Product Videos")
-                                for source in video_sources:
-                                    render_product_details(source)
-                                    st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
-                else:
-                    # Display user's message
-                    st.markdown(message["content"])
 
-    # Chat input for user
-    prompt = st.chat_input("Hey! Ask me anything about fashion - styles, outfits, trends...")
-    
-    if prompt:
-        # Display user's new message
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(prompt)
+    # Chat messages display
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"], avatar="👤" if message["role"] == "user" else "👗"):
+            if message["role"] == "assistant":
+                st.markdown(message["content"]["response"])
+                if message["content"].get("metadata") and message["content"]["metadata"].get("sources"):
+                    render_results_section(message["content"])
+            else:
+                st.markdown(message["content"])
+
+    # Handle query from suggestion buttons
+    if st.session_state.query:
+        query = st.session_state.query
+        st.session_state.query = ""  # Clear the query
         
-        # Add user message to session state
+        # Add user message
         st.session_state.messages.append({
             "role": "user",
-            "content": prompt
+            "content": query
         })
-
+        
         # Get and display assistant's response
         with st.chat_message("assistant", avatar="👗"):
             with st.spinner("Finding perfect matches..."):
                 try:
-                    # Get response from multimodal RAG system
-                    response_data = get_multimodal_rag_response(prompt)
-                    
-                    # Display the text response
+                    response_data = get_multimodal_rag_response(query)
                     st.markdown(response_data["response"])
-                    
-                    # Display product details if available
                     if response_data.get("metadata") and response_data["metadata"].get("sources"):
-                        with st.expander("View Product Details 🛍️", expanded=True):
-                            metadata = response_data["metadata"]
-                            
-                            # Display summary statistics
-                            st.markdown(f"""
-                                <div style="margin-bottom: 2rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
-                                    <h4 style="color: #333;">Search Results Summary</h4>
-                                    <p>Found {metadata["total_sources"]} relevant matches:</p>
-                                    <ul>
-                                        <li>{metadata["text_sources"]} product descriptions</li>
-                                        <li>{metadata["video_sources"]} video segments</li>
-                                    </ul>
-                                </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Display text results first
-                            text_sources = [s for s in metadata["sources"] if s.get("type") == "text"]
-                            if text_sources:
-                                st.markdown("### 📝 Retrieved Products")
-                                for source in text_sources:
-                                    render_product_details(source)
-                                    st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
-                            
-                            # Display video results second
-                            video_sources = [s for s in metadata["sources"] if s.get("type") == "video"]
-                            if video_sources:
-                                st.markdown("### 📹 Matching Product Videos")
-                                for source in video_sources:
-                                    render_product_details(source)
-                                    st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
+                        render_results_section(response_data)
                 except Exception as e:
                     st.error(f"An error occurred: {str(e)}")
                     response_data = {
@@ -442,12 +341,43 @@ def chat_page():
                         "metadata": None
                     }
         
-        # Add assistant's response to session state
+        # Add assistant's response to messages
         st.session_state.messages.append({
             "role": "assistant",
             "content": response_data
         })
-    
+        
+        st.rerun()
+
+    # Chat input
+    if prompt := st.chat_input("Hey! Ask me anything about fashion - styles, outfits, trends..."):
+        # Add user message
+        st.session_state.messages.append({
+            "role": "user",
+            "content": prompt
+        })
+        
+        # Get and display assistant's response
+        with st.chat_message("assistant", avatar="👗"):
+            with st.spinner("Finding perfect matches..."):
+                try:
+                    response_data = get_multimodal_rag_response(prompt)
+                    st.markdown(response_data["response"])
+                    if response_data.get("metadata") and response_data["metadata"].get("sources"):
+                        render_results_section(response_data)
+                except Exception as e:
+                    st.error(f"An error occurred: {str(e)}")
+                    response_data = {
+                        "response": "I encountered an error while processing your request. Please try again.",
+                        "metadata": None
+                    }
+        
+        # Add assistant's response to messages
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response_data
+        })
+
     # Sidebar content
     with st.sidebar:
         st.markdown("""
@@ -462,9 +392,6 @@ def chat_page():
                 <li>Visual search for similar styles</li>
                 <li>Video demonstrations of products</li>
             </ul>
-            <p style="color: #666; margin-top: 1rem;">
-                Try asking about specific styles, occasions, or product features!
-            </p>
         </div>
         """, unsafe_allow_html=True)
         
