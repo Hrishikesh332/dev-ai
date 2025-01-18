@@ -206,8 +206,8 @@ def create_suggestion_button(text):
             {text}
         </button>
     """
-
 def render_suggestions():
+    """Render suggestion buttons for chat prompts"""
     suggestions = [
         "Show me black dresses for a party",
         "I'm looking for men's black t-shirts",
@@ -216,8 +216,36 @@ def render_suggestions():
         "Show me t-shirts for men",
         "Can you suggest bridal wear?"
     ]
-    
-    st.markdown("""
+
+    buttons_html = ""
+    for suggestion in suggestions:
+        escaped_suggestion = suggestion.replace("'", "\\'")
+        buttons_html += f"""
+            <button
+                onclick="document.querySelector('textarea').value='{escaped_suggestion}'; document.querySelector('textarea').dispatchEvent(new Event('input', {{ bubbles: true }}));"
+                style="
+                    background: transparent;
+                    border: 1px solid #81E831;
+                    color: #81E831;
+                    padding: 8px 16px;
+                    margin: 5px;
+                    border-radius: 20px;
+                    cursor: pointer;
+                    font-size: 0.9em;
+                    transition: all 0.3s ease;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    max-width: 300px;
+                "
+                onmouseover="this.style.background='#81E831'; this.style.color='white';"
+                onmouseout="this.style.background='transparent'; this.style.color='#81E831';"
+            >
+                {escaped_suggestion}
+            </button>
+        """
+
+    st.markdown(f"""
         <div style="
             padding: 1.5rem;
             background-color: white;
@@ -230,15 +258,16 @@ def render_suggestions():
                 margin-bottom: 1rem;
                 font-size: 1em;
             ">Try asking about:</p>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                align-items: center;
+            ">
+                {buttons_html}
+            </div>
+        </div>
     """, unsafe_allow_html=True)
-    
-    for suggestion in suggestions:
-        st.markdown(create_suggestion_button(suggestion), unsafe_allow_html=True)
-    
-    st.markdown("</div></div>", unsafe_allow_html=True)
-
-
     
 def render_results_section(response_data):
     """Helper function to render results in the chat interface"""
