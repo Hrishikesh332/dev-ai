@@ -115,9 +115,7 @@ def render_product_details(source):
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            # Debug the source data for link
-            st.write("Debug - Source:", source)
-            
+
             # Determine section title and button text
             is_video = source.get("type") == "video"
             section_title = "📹 Video Segment" if is_video else "📝 Product Details"
@@ -169,8 +167,6 @@ def render_product_details(source):
             if store_link_html:
                 st.markdown(store_link_html, unsafe_allow_html=True)
                 
-                # Fallback regular link
-                st.markdown(f"[Click here to view on store]({source['link']})")
         
         with col2:
             if source.get('video_url'):
