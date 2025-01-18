@@ -78,6 +78,13 @@ def main():
     st.subheader("Search Similar Product Clips")
     
     st.markdown('<a href="/" class="nav-button">Back to Chat</a>', unsafe_allow_html=True)
+
+    # Information message about default image
+    st.markdown("""
+        <div style="padding: 1rem; background-color: #f0f2f6; border-radius: 0.5rem; margin-bottom: 1rem;">
+            ℹ️ Using default test image. You can upload your own image to search for similar products.
+        </div>
+    """, unsafe_allow_html=True)
     
     with st.container():
         col1, col2 = st.columns([1, 2])
@@ -94,10 +101,9 @@ def main():
                 default_image = load_default_image()
                 if default_image:
                     uploaded_file = default_image
-                    st.info("Using default test image. You can upload your own image to search for similar products.")
             
             if uploaded_file:
-                st.image(uploaded_file, caption="Query Image", use_column_width=True)
+                st.image(uploaded_file, use_container_width=True)
         
         with col2:
             if uploaded_file:
