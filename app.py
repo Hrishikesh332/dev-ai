@@ -183,6 +183,63 @@ def render_product_details(source):
                     # For non-segmented videos, use st.video with autoplay disabled
                     st.video(source['video_url'], start_time=0)
 
+
+def create_suggestion_button(text):
+    return f"""
+        <button 
+            onclick="document.getElementsByTagName('textarea')[0].value='{text}';
+                    document.getElementsByTagName('textarea')[0].focus();"
+            style="
+                background: transparent;
+                border: 1px solid #81E831;
+                color: #81E831;
+                padding: 8px 16px;
+                margin: 5px;
+                border-radius: 20px;
+                cursor: pointer;
+                font-size: 0.9em;
+                transition: all 0.3s ease;
+            "
+            onmouseover="this.style.background='#81E831'; this.style.color='white';"
+            onmouseout="this.style.background='transparent'; this.style.color='#81E831';"
+        >
+            {text}
+        </button>
+    """
+
+def render_suggestions():
+    suggestions = [
+        "Show me black dresses for a party",
+        "I'm looking for men's black t-shirts",
+        "What are the latest bridal collection designs?",
+        "Find me a casual black dress",
+        "Show me t-shirts for men",
+        "Can you suggest bridal wear?"
+    ]
+    
+    st.markdown("""
+        <div style="
+            padding: 1.5rem;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 1rem;
+        ">
+            <p style="
+                color: #666;
+                margin-bottom: 1rem;
+                font-size: 1em;
+            ">Try asking about:</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+    """, unsafe_allow_html=True)
+    
+    for suggestion in suggestions:
+        st.markdown(create_suggestion_button(suggestion), unsafe_allow_html=True)
+    
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+
+    
 def render_results_section(response_data):
     """Helper function to render results in the chat interface"""
     if response_data.get("metadata") and response_data["metadata"].get("sources"):
@@ -236,10 +293,14 @@ def chat_page():
         </div>
     """, unsafe_allow_html=True)
 
-    # Initialize session state for messages if not exists
+    # Initialize session state for messages
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+    # Add suggestions if no messages yet
+    if not st.session_state.messages:
+        render_suggestions()
+        
     # Chat container for all messages
     chat_container = st.container()
     
