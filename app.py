@@ -303,7 +303,6 @@ def render_results_section(response_data):
                     render_product_details(source)
                     st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
                     
-                    
 def chat_page():
     """Main chat interface implementation"""
     # Page Header
