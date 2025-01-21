@@ -183,6 +183,14 @@ def search_similar_videos(image_file, top_k=5):
         
     except Exception as e:
         return None
+
+
+
+
+
+
+
+
 def get_rag_response(question):
     try:
         # Initialize TwelveLabs client
@@ -291,7 +299,7 @@ def get_rag_response(question):
                                 'start_time': start_time,
                                 'end_time': end_time,
                                 'video_url': video_url,
-                                'link': product_link
+                                'embedding': hit.entity.get('vector')  # Get the vector embedding
                             })
                             seen_products.add(product_key)
                             st.write("Video embed added to list")
@@ -332,7 +340,6 @@ def get_rag_response(question):
             combined_context.append(
                 f"Product: {doc['title']}\n"
                 f"Description: {doc['description']}\n"
-                f"Product Link: {doc['link']}\n"
                 f"Match Score: {doc['similarity']}%"
             )
         
@@ -345,7 +352,7 @@ def get_rag_response(question):
             combined_context.append(
                 f"Product Video: {doc['title']}\n"
                 f"Description: {doc['description']}\n"
-                f"Product Link: {doc['link']}\n"
+                f"Video Embedding: {doc['embedding']}\n"
                 f"Match Score: {doc['similarity']}%\n"
                 f"Segment Timing: {doc['start_time']}s to {doc['end_time']}s"
             )
@@ -403,8 +410,6 @@ Please provide fashion advice and product recommendations based on these options
             for idx, video in enumerate(video_embeds):
                 st.write(f"\nDisplaying video {idx + 1}:")
                 st.write(f"**{video['title']}** (Similarity: {video['similarity']}%)")
-                if video['link'] != '#':
-                    st.markdown(f"[View Product]({video['link']})")
                 st.write(f"Segment: {video['start_time']}s to {video['end_time']}s")
                 
                 try:
