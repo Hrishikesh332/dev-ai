@@ -1,6 +1,6 @@
 import streamlit as st
 from dotenv import load_dotenv
-from utils import generate_embedding, insert_embeddings, collection, get_multimodal_rag_response
+from utils import generate_embedding, insert_embeddings, collection, get_rag_response
 
 load_dotenv()
 
@@ -70,8 +70,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Create an embedded video player with timestamp support
 def create_video_embed(video_url, start_time=0, end_time=0):
-    """Create an embedded video player with timestamp support."""
     try:
         if 'vimeo.com' in video_url:
             video_id = video_url.split('/')[-1].split('?')[0]
@@ -110,7 +110,6 @@ def create_video_embed(video_url, start_time=0, end_time=0):
 
 
 def render_product_details(source):
-    """Helper function to render product details in a consistent format"""
     with st.container():
         col1, col2 = st.columns([2, 1])
         
@@ -120,7 +119,6 @@ def render_product_details(source):
             is_video = source.get("type") == "video"
             section_title = "📹 Video Segment" if is_video else "📝 Product Details"
             
-            # Create store link HTML if link exists
             store_link_html = ""
             if source.get('link') and isinstance(source['link'], str) and len(source['link'].strip()) > 0:
                 store_link_html = f"""
@@ -143,8 +141,7 @@ def render_product_details(source):
                         </a>
                     </div>
                 """
-            
-            # Separate content card HTML
+            # Product Card
             card_html = f"""
                 <div style="background-color: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                     <h3 style="color: #333; margin-bottom: 1rem;">{section_title}</h3>
@@ -160,10 +157,7 @@ def render_product_details(source):
                 </div>
             """
             
-            # Render the card first
             st.markdown(card_html, unsafe_allow_html=True)
-            
-            # Render the store link separately
             if store_link_html:
                 st.markdown(store_link_html, unsafe_allow_html=True)
                 
@@ -206,6 +200,7 @@ def create_suggestion_button(text):
             {text}
         </button>
     """
+    
 def render_suggestions():
     st.markdown("### Try asking about:")
     
@@ -231,26 +226,23 @@ def render_suggestions():
         </style>
     """, unsafe_allow_html=True)
 
-    # Create columns for better layout
     cols = st.columns(3)
     
-    # Distribute suggestions across columns
     for idx, suggestion in enumerate(suggestions):
         col_idx = idx % 3
         with cols[col_idx]:
             if st.button(suggestion, key=f"suggestion_{idx}", use_container_width=True):
                 # When button is clicked, set it as the query
                 st.session_state.query = suggestion
-                # Force a rerun to update the chat
                 st.rerun()
-    
+
+# Utitily function to render results in the chat interface
 def render_results_section(response_data):
-    """Helper function to render results in the chat interface"""
+
     if response_data.get("metadata") and response_data["metadata"].get("sources"):
         with st.expander("View Product Details 🛍️", expanded=True):
             metadata = response_data["metadata"]
-            
-            # Display summary statistics
+
             st.markdown(f"""
                 <div style="margin-bottom: 2rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px;">
                     <h4 style="color: #333;">Search Results Summary</h4>
@@ -262,7 +254,6 @@ def render_results_section(response_data):
                 </div>
             """, unsafe_allow_html=True)
             
-            # Display text results first
             text_sources = [s for s in metadata["sources"] if s.get("type") == "text"]
             if text_sources:
                 st.markdown("### 📝 Retrieved Products")
@@ -270,7 +261,6 @@ def render_results_section(response_data):
                     render_product_details(source)
                     st.markdown('<hr style="margin: 2rem 0;">', unsafe_allow_html=True)
             
-            # Display video results second
             video_sources = [s for s in metadata["sources"] if s.get("type") == "video"]
             if video_sources:
                 st.markdown("### 📹 Matching Product Videos")
@@ -285,7 +275,6 @@ def chat_page():
     if "query" not in st.session_state:
         st.session_state.query = ""
 
-    # Page Header
     st.markdown("""
         <div style="text-align: center; padding: 2rem 0;">
             <h1 style="color: #81E831; font-size: 3em; font-weight: 800;">🤵‍♂️ Fashion AI Assistant</h1>
@@ -296,8 +285,8 @@ def chat_page():
     # Navigation buttons
     st.markdown("""
         <div class="nav-container">
-            <a href="?page=add_product" class="nav-button">Add Product Data</a>
-            <a href="?page=visual_search" class="nav-button">Visual Search</a>
+            <a href="add_product_page" class="nav-button">Add Product Data</a>
+            <a href="visual_search" class="nav-button">Visual Search</a>
         </div>
     """, unsafe_allow_html=True)
 
@@ -326,11 +315,10 @@ def chat_page():
             "content": query
         })
         
-        # Get and display assistant's response
         with st.chat_message("assistant", avatar="👗"):
             with st.spinner("Finding perfect matches..."):
                 try:
-                    response_data = get_multimodal_rag_response(query)
+                    response_data = get_rag_response(query)
                     st.markdown(response_data["response"])
                     if response_data.get("metadata") and response_data["metadata"].get("sources"):
                         render_results_section(response_data)
@@ -341,7 +329,6 @@ def chat_page():
                         "metadata": None
                     }
         
-        # Add assistant's response to messages
         st.session_state.messages.append({
             "role": "assistant",
             "content": response_data
@@ -357,11 +344,10 @@ def chat_page():
             "content": prompt
         })
         
-        # Get and display assistant's response
         with st.chat_message("assistant", avatar="👗"):
             with st.spinner("Finding perfect matches..."):
                 try:
-                    response_data = get_multimodal_rag_response(prompt)
+                    response_data = get_rag_response(prompt)
                     st.markdown(response_data["response"])
                     if response_data.get("metadata") and response_data["metadata"].get("sources"):
                         render_results_section(response_data)
@@ -372,7 +358,6 @@ def chat_page():
                         "metadata": None
                     }
         
-        # Add assistant's response to messages
         st.session_state.messages.append({
             "role": "assistant",
             "content": response_data
