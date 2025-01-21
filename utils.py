@@ -183,7 +183,6 @@ def search_similar_videos(image_file, top_k=5):
         
     except Exception as e:
         return None
-
 def get_rag_response(question):
     try:
         # Initialize TwelveLabs client
@@ -209,25 +208,21 @@ def get_rag_response(question):
             data=[question_embedding],
             anns_field="vector",
             param=search_params,
-            limit=2,  # Get top 2 text matches
+            limit=2,
             expr="embedding_type == 'text'",
             output_fields=["metadata"]
         )
-        
-        # Debug log
-        st.write("Starting video search...")
         
         # Search for relevant video segments
         video_results = collection.search(
             data=[question_embedding],
             anns_field="vector",
             param=search_params,
-            limit=3,  # Get top 3 video segments
+            limit=3,
             expr="embedding_type == 'video'",
             output_fields=["metadata"]
         )
         
-        # Debug log video results
         st.write(f"Retrieved {len(video_results)} video results")
 
         # Process text results
@@ -247,32 +242,35 @@ def get_rag_response(question):
                     "type": "text"
                 })
 
-        # Process video results with detailed logging
+        # Process video results
         video_docs = []
         video_semantic_info = []
+        video_embeds = []  # Store video embeds for UI display
         
         for hits in video_results:
             st.write(f"Processing {len(hits)} video hits")
             for hit in hits:
                 metadata = hit.metadata
-                st.write("Video metadata:", metadata)  # Debug log
-                
                 similarity = round((hit.score + 1) * 50, 2)
                 similarity = max(0, min(100, similarity))
                 
-                # Extract start and end times from metadata
                 start_time = metadata.get('start_time', 0)
                 end_time = metadata.get('end_time', 0)
+                video_url = metadata.get('video_url', '')
                 
-                st.write(f"Video segment times - Start: {start_time}, End: {end_time}")  # Debug log
+                st.write(f"Video URL: {video_url}")
+                st.write(f"Segment times - Start: {start_time}, End: {end_time}")
                 
-                # Store semantic relevance information
-                semantic_info = {
-                    'relevance_score': similarity,
-                    'match_strength': 'high' if similarity > 75 else 'medium' if similarity > 50 else 'low',
-                    'start_time': start_time,
-                    'end_time': end_time
-                }
+                # Generate video embed HTML
+                if video_url:
+                    embed_html = create_video_embed(video_url, start_time, end_time)
+                    video_embeds.append({
+                        'title': metadata.get('title', 'Untitled'),
+                        'embed_html': embed_html,
+                        'similarity': similarity,
+                        'start_time': start_time,
+                        'end_time': end_time
+                    })
                 
                 video_docs.append({
                     "title": metadata.get('title', 'Untitled'),
@@ -283,12 +281,11 @@ def get_rag_response(question):
                     "type": "video",
                     "start_time": start_time,
                     "end_time": end_time,
-                    "video_url": metadata.get('video_url', ''),
-                    "semantic_info": semantic_info
+                    "video_url": video_url
                 })
                 
                 video_semantic_info.append(
-                    f"Video '{metadata.get('title', 'Untitled')}' shows {semantic_info['match_strength']} relevance ({similarity}% match) to the query. "
+                    f"Video '{metadata.get('title', 'Untitled')}' shows {similarity}% match to the query. "
                     f"Relevant segment: {start_time}s to {end_time}s"
                 )
 
@@ -324,18 +321,13 @@ def get_rag_response(question):
         
         # Join all context together
         full_context = "\n\n".join(combined_context)
-        
-        # Debug log final context
-        st.write("Final context prepared for LLM")
-        st.write("Number of video docs:", len(video_docs))
-        st.write("Sample video doc:", video_docs[0] if video_docs else "No video docs")
 
         # Create messages for chat completion
         messages = [
             {
                 "role": "system",
                 "content": """You are a professional fashion advisor and AI shopping assistant.
-                You have access to both text descriptions and video content analysis results.
+                You have access to both text descriptions and video content.
                 Use this multimodal information to provide accurate and relevant recommendations.
                 Pay attention to the match scores and video segments to prioritize the most relevant content.
                 
@@ -370,6 +362,15 @@ Please provide fashion advice and product recommendations based on these options
             max_tokens=500
         )
 
+        # Display video embeds in the UI
+        if video_embeds:
+            st.write("### Relevant Video Segments")
+            for video in video_embeds:
+                st.write(f"**{video['title']}** (Similarity: {video['similarity']}%)")
+                st.write(f"Segment: {video['start_time']}s to {video['end_time']}s")
+                st.markdown(video['embed_html'], unsafe_allow_html=True)
+                st.write("---")
+
         # Format and return response
         return {
             "response": chat_response.choices[0].message.content,
@@ -377,17 +378,22 @@ Please provide fashion advice and product recommendations based on these options
                 "sources": text_docs + video_docs,
                 "total_sources": len(text_docs) + len(video_docs),
                 "text_sources": len(text_docs),
-                "video_sources": len(video_docs)
+                "video_sources": len(video_docs),
+                "video_embeds": video_embeds  # Include video embeds in metadata
             }
         }
     
     except Exception as e:
         st.error(f"Error in multimodal RAG: {str(e)}")
-        st.error("Full error details:", exc_info=True)  # Additional error details
+        st.error("Full error details:", exc_info=True)
         return {
             "response": "I encountered an error while processing your request. Please try again.",
             "metadata": None
         }
+
+
+
+
 # Extract video ID and platform from URL
 def get_video_id_from_url(video_url):
 
