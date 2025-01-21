@@ -4,8 +4,8 @@ import os
 from PIL import Image
 import io
 
+
 def load_default_image():
-    """Load the default image from src directory"""
     try:
         default_image_path = "src/tshirt-black.jpg"
         if os.path.exists(default_image_path):
@@ -79,13 +79,13 @@ def main():
     
     st.markdown('<a href="/" class="nav-button">Back to Chat</a>', unsafe_allow_html=True)
 
-    # Information message about default image
     st.markdown("""
         <div style="padding: 1rem; background-color: #f0f2f6; border-radius: 0.5rem; margin-bottom: 1rem;">
             ℹ️ Using default test image. You can upload your own image to search for similar products.
         </div>
     """, unsafe_allow_html=True)
-    
+
+
     with st.container():
         col1, col2 = st.columns([1, 2])
         
@@ -95,13 +95,11 @@ def main():
                 type=['png', 'jpg', 'jpeg'],
                 help="Select an image to find similar video segments"
             )
-            
-            # If no file is uploaded, use the default image
+
             if not uploaded_file:
                 default_image = load_default_image()
                 if default_image:
                     uploaded_file = default_image
-            
             if uploaded_file:
                 st.image(uploaded_file, use_container_width=True)
         
@@ -116,6 +114,7 @@ def main():
                     help="Select the number of similar videos to retrieve"
                 )
                 
+
                 slider_progress = (top_k - 1) / 19 * 100
                 st.markdown(
                     f'''
