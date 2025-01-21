@@ -188,8 +188,6 @@ def search_similar_videos(image_file, top_k=5):
 
 
 
-
-
 def get_rag_response(question):
     try:
         # Initialize TwelveLabs client
@@ -363,6 +361,13 @@ def get_rag_response(question):
         
         # Join all context together
         full_context = "\n\n".join(combined_context)
+        
+        # Log the full context
+        st.write("\n=== Full Context Being Sent to LLM ===")
+        st.write("Number of text documents:", len(text_docs))
+        st.write("Number of video documents:", len(video_docs))
+        st.write("\nComplete Context:")
+        st.code(full_context, language="text")  # Using st.code for better formatting
 
         # Create messages for chat completion
         messages = [
@@ -396,7 +401,7 @@ Available Products and Content Analysis:
 Please provide fashion advice and product recommendations based on these options."""
             }
         ]
-        print(full_context)
+
         # Get response from OpenAI
         chat_response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -445,7 +450,6 @@ Please provide fashion advice and product recommendations based on these options
             "response": "I encountered an error while processing your request. Please try again.",
             "metadata": None
         }
-
 # Extract video ID and platform from URL
 def get_video_id_from_url(video_url):
 
