@@ -190,7 +190,6 @@ def search_similar_videos(image_file, top_k=5):
 
 
 
-
 def get_rag_response(question):
     try:
         # Initialize TwelveLabs client
@@ -228,7 +227,7 @@ def get_rag_response(question):
             param=search_params,
             limit=3,
             expr="embedding_type == 'video'",
-            output_fields=["metadata"]
+            output_fields=["metadata", "vector"]  # Add vector to output fields
         )
         
         st.write(f"Retrieved {len(video_results)} video results")
@@ -292,6 +291,11 @@ def get_rag_response(question):
                         
                         product_key = f"{metadata.get('product_id', '')}_{start_time}_{end_time}"
                         if product_key not in seen_products:
+                            # Log the hit entity
+                            st.write("\nHit entity fields:", hit.entity.keys())
+                            embedding_vector = hit.entity.get('vector', [])
+                            st.write(f"Retrieved embedding vector of length: {len(embedding_vector)}")
+                            
                             video_embeds.append({
                                 'title': metadata.get('title', 'Untitled'),
                                 'embed_html': embed_html,
@@ -299,10 +303,10 @@ def get_rag_response(question):
                                 'start_time': start_time,
                                 'end_time': end_time,
                                 'video_url': video_url,
-                                'embedding': hit.entity.get('vector')  # Get the vector embedding
+                                'embedding_vector': embedding_vector
                             })
                             seen_products.add(product_key)
-                            st.write("Video embed added to list")
+                            st.write("Video embed and embedding vector added to list")
                     except Exception as e:
                         st.error(f"Error creating video embed: {str(e)}")
                 else:
@@ -352,7 +356,7 @@ def get_rag_response(question):
             combined_context.append(
                 f"Product Video: {doc['title']}\n"
                 f"Description: {doc['description']}\n"
-                f"Video Embedding: {doc['embedding']}\n"
+                f"Video Embedding Vector: {doc.get('embedding_vector', [])}\n"
                 f"Match Score: {doc['similarity']}%\n"
                 f"Segment Timing: {doc['start_time']}s to {doc['end_time']}s"
             )
