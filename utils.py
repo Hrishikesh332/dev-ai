@@ -212,7 +212,7 @@ def get_rag_response(question):
             param=search_params,
             limit=2,  # Get top 2 text matches
             expr="embedding_type == 'text'",
-            output_fields=["metadata", "vector"]  # Also retrieve the vector field
+            output_fields=["metadata"]
         )
         
         # Search for relevant video segments
@@ -222,7 +222,7 @@ def get_rag_response(question):
             param=search_params,
             limit=3,  # Get top 3 video segments
             expr="embedding_type == 'video'",
-            output_fields=["metadata", "vector"]  # Also retrieve the vector field
+            output_fields=["metadata"]
         )
 
         # Process text results
@@ -239,17 +239,24 @@ def get_rag_response(question):
                     "product_id": metadata.get('product_id', ''),
                     "similarity": similarity,
                     "raw_score": hit.score,
-                    "type": "text",
-                    "embedding": hit.entity.get('vector')
+                    "type": "text"
                 })
 
-        # Process video results
+        # Process video results and calculate semantic relevance
         video_docs = []
+        video_semantic_info = []
+        
         for hits in video_results:
             for hit in hits:
                 metadata = hit.metadata
                 similarity = round((hit.score + 1) * 50, 2)
                 similarity = max(0, min(100, similarity))
+                
+                # Store semantic relevance information
+                semantic_info = {
+                    'relevance_score': similarity,
+                    'match_strength': 'high' if similarity > 75 else 'medium' if similarity > 50 else 'low'
+                }
                 
                 video_docs.append({
                     "title": metadata.get('title', 'Untitled'),
@@ -258,8 +265,12 @@ def get_rag_response(question):
                     "similarity": similarity,
                     "raw_score": hit.score,
                     "type": "video",
-                    "embedding": hit.entity.get('vector')
+                    "semantic_info": semantic_info
                 })
+                
+                video_semantic_info.append(
+                    f"Video '{metadata.get('title', 'Untitled')}' shows {semantic_info['match_strength']} relevance ({similarity}% match) to the query"
+                )
 
         if not text_docs and not video_docs:
             return {
@@ -267,7 +278,7 @@ def get_rag_response(question):
                 "metadata": None
             }
 
-        # Create context from both text and video results for LLM
+        # Create context for LLM
         combined_context = []
         
         # Add text results context
@@ -275,15 +286,19 @@ def get_rag_response(question):
             combined_context.append(
                 f"Product: {doc['title']}\n"
                 f"Description: {doc['description']}\n"
-                f"Text Embedding Vector: {doc['embedding']}"
+                f"Match Score: {doc['similarity']}%"
             )
         
-        # Add video results context with embeddings
+        # Add semantic information about video matches
+        if video_semantic_info:
+            combined_context.append("\nVideo Content Analysis:\n" + "\n".join(video_semantic_info))
+            
+        # Add video descriptions
         for doc in video_docs:
             combined_context.append(
                 f"Product Video: {doc['title']}\n"
                 f"Description: {doc['description']}\n"
-                f"Video Embedding Vector: {doc['embedding']}"
+                f"Match Score: {doc['similarity']}%"
             )
         
         # Join all context together
@@ -294,8 +309,9 @@ def get_rag_response(question):
             {
                 "role": "system",
                 "content": """You are a professional fashion advisor and AI shopping assistant.
-                You have access to both text descriptions and their embedding vectors, as well as video content embeddings.
-                Use this multimodal information to provide more accurate and relevant recommendations.
+                You have access to both text descriptions and video content analysis results.
+                Use this multimodal information to provide accurate and relevant recommendations.
+                Pay attention to the match scores to prioritize the most relevant items.
                 
                 Organize your response in the following format:
                 First, provide a brief, direct answer to the user's query
@@ -312,7 +328,7 @@ def get_rag_response(question):
                 "role": "user",
                 "content": f"""Query: {question}
 
-Available Products with Embeddings:
+Available Products and Content Analysis:
 {full_context}
 
 Please provide fashion advice and product recommendations based on these options."""
