@@ -184,16 +184,9 @@ def search_similar_videos(image_file, top_k=5):
     except Exception as e:
         return None
 
-def get_multimodal_rag_response(question):
-    """
-    Generate a multimodal response using both text and video embeddings.
-    
-    Args:
-        question (str): The user's query about fashion products
-        
-    Returns:
-        dict: Response containing assistant's reply and metadata about found products
-    """
+
+# Get response using text embeddings to get multimodal result
+def get_rag_response(question):
     try:
         # Initialize TwelveLabs client
         twelvelabs_client = TwelveLabs(api_key=TWELVELABS_API_KEY)
@@ -205,7 +198,6 @@ def get_multimodal_rag_response(question):
             text=question_with_context
         ).text_embedding.segments[0].embeddings_float
         
-        # Define search parameters
         search_params = {
             "metric_type": "COSINE",
             "params": {
@@ -274,7 +266,6 @@ def get_multimodal_rag_response(question):
                     "type": "video"
                 })
 
-        # If no results found, return early
         if not text_docs and not video_docs:
             return {
                 "response": "I couldn't find any matching products. Try describing what you're looking for differently.",
@@ -294,12 +285,12 @@ def get_multimodal_rag_response(question):
                 "content": """You are a professional fashion advisor and AI shopping assistant.
                 Organize your response in the following format:
 
-                1. First, provide a brief, direct answer to the user's query
-                2. Then, describe any relevant products found that match their request, including:
+                First, provide a brief, direct answer to the user's query
+                Then, describe any relevant products found that match their request, including:
                    - Product name and key features
                    - Why this product matches their needs
                    - Style suggestions for how to wear or use the item
-                3. Finally, provide any additional style advice or recommendations
+                Finally, provide any additional style advice or recommendations
                 
                 Keep your response engaging and natural while maintaining this clear structure.
                 Focus on being helpful and specific rather than promotional."""
@@ -341,7 +332,6 @@ Please provide fashion advice and product recommendations based on these options
             "metadata": None
         }
  
-
 
 # Extract video ID and platform from URL
 def get_video_id_from_url(video_url):
