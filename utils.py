@@ -283,7 +283,8 @@ def get_rag_response(question):
                             'similarity': similarity,
                             'start_time': start_time,
                             'end_time': end_time,
-                            'video_url': video_url  # Include video URL in embed data
+                            'video_url': video_url,
+                            'link': metadata.get('link', '')  # Add product link
                         })
                         st.write("Video embed added to list")
                     except Exception as e:
@@ -322,6 +323,7 @@ def get_rag_response(question):
             combined_context.append(
                 f"Product: {doc['title']}\n"
                 f"Description: {doc['description']}\n"
+                f"Product Link: {doc['link']}\n"
                 f"Match Score: {doc['similarity']}%"
             )
         
@@ -334,6 +336,7 @@ def get_rag_response(question):
             combined_context.append(
                 f"Product Video: {doc['title']}\n"
                 f"Description: {doc['description']}\n"
+                f"Product Link: {doc['link']}\n"
                 f"Match Score: {doc['similarity']}%\n"
                 f"Segment Timing: {doc['start_time']}s to {doc['end_time']}s"
             )
@@ -390,6 +393,7 @@ Please provide fashion advice and product recommendations based on these options
             for idx, video in enumerate(video_embeds):
                 st.write(f"\nDisplaying video {idx + 1}:")
                 st.write(f"**{video['title']}** (Similarity: {video['similarity']}%)")
+                st.write(f"Product Link: [View Product]({video['link']})")  # Display as clickable link
                 st.write(f"Video URL: {video['video_url']}")
                 st.write(f"Segment: {video['start_time']}s to {video['end_time']}s")
                 
@@ -422,8 +426,6 @@ Please provide fashion advice and product recommendations based on these options
             "response": "I encountered an error while processing your request. Please try again.",
             "metadata": None
         }
-
-
 
 # Extract video ID and platform from URL
 def get_video_id_from_url(video_url):
