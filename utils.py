@@ -184,7 +184,6 @@ def search_similar_videos(image_file, top_k=5):
     except Exception as e:
         return None
 
-
 def get_rag_response(question):
     try:
         # Initialize TwelveLabs client
@@ -215,6 +214,9 @@ def get_rag_response(question):
             output_fields=["metadata"]
         )
         
+        # Debug log
+        st.write("Starting video search...")
+        
         # Search for relevant video segments
         video_results = collection.search(
             data=[question_embedding],
@@ -224,6 +226,9 @@ def get_rag_response(question):
             expr="embedding_type == 'video'",
             output_fields=["metadata"]
         )
+        
+        # Debug log video results
+        st.write(f"Retrieved {len(video_results)} video results")
 
         # Process text results
         text_docs = []
@@ -242,20 +247,31 @@ def get_rag_response(question):
                     "type": "text"
                 })
 
-        # Process video results and calculate semantic relevance
+        # Process video results with detailed logging
         video_docs = []
         video_semantic_info = []
         
         for hits in video_results:
+            st.write(f"Processing {len(hits)} video hits")
             for hit in hits:
                 metadata = hit.metadata
+                st.write("Video metadata:", metadata)  # Debug log
+                
                 similarity = round((hit.score + 1) * 50, 2)
                 similarity = max(0, min(100, similarity))
+                
+                # Extract start and end times from metadata
+                start_time = metadata.get('start_time', 0)
+                end_time = metadata.get('end_time', 0)
+                
+                st.write(f"Video segment times - Start: {start_time}, End: {end_time}")  # Debug log
                 
                 # Store semantic relevance information
                 semantic_info = {
                     'relevance_score': similarity,
-                    'match_strength': 'high' if similarity > 75 else 'medium' if similarity > 50 else 'low'
+                    'match_strength': 'high' if similarity > 75 else 'medium' if similarity > 50 else 'low',
+                    'start_time': start_time,
+                    'end_time': end_time
                 }
                 
                 video_docs.append({
@@ -265,11 +281,15 @@ def get_rag_response(question):
                     "similarity": similarity,
                     "raw_score": hit.score,
                     "type": "video",
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "video_url": metadata.get('video_url', ''),
                     "semantic_info": semantic_info
                 })
                 
                 video_semantic_info.append(
-                    f"Video '{metadata.get('title', 'Untitled')}' shows {semantic_info['match_strength']} relevance ({similarity}% match) to the query"
+                    f"Video '{metadata.get('title', 'Untitled')}' shows {semantic_info['match_strength']} relevance ({similarity}% match) to the query. "
+                    f"Relevant segment: {start_time}s to {end_time}s"
                 )
 
         if not text_docs and not video_docs:
@@ -293,16 +313,22 @@ def get_rag_response(question):
         if video_semantic_info:
             combined_context.append("\nVideo Content Analysis:\n" + "\n".join(video_semantic_info))
             
-        # Add video descriptions
+        # Add video descriptions with time segments
         for doc in video_docs:
             combined_context.append(
                 f"Product Video: {doc['title']}\n"
                 f"Description: {doc['description']}\n"
-                f"Match Score: {doc['similarity']}%"
+                f"Match Score: {doc['similarity']}%\n"
+                f"Segment Timing: {doc['start_time']}s to {doc['end_time']}s"
             )
         
         # Join all context together
         full_context = "\n\n".join(combined_context)
+        
+        # Debug log final context
+        st.write("Final context prepared for LLM")
+        st.write("Number of video docs:", len(video_docs))
+        st.write("Sample video doc:", video_docs[0] if video_docs else "No video docs")
 
         # Create messages for chat completion
         messages = [
@@ -311,7 +337,7 @@ def get_rag_response(question):
                 "content": """You are a professional fashion advisor and AI shopping assistant.
                 You have access to both text descriptions and video content analysis results.
                 Use this multimodal information to provide accurate and relevant recommendations.
-                Pay attention to the match scores to prioritize the most relevant items.
+                Pay attention to the match scores and video segments to prioritize the most relevant content.
                 
                 Organize your response in the following format:
                 First, provide a brief, direct answer to the user's query
@@ -319,6 +345,7 @@ def get_rag_response(question):
                    - Product name and key features
                    - Why this product matches their needs
                    - Style suggestions for how to wear or use the item
+                   - For video content, mention the relevant time segments
                 Finally, provide any additional style advice or recommendations
                 
                 Keep your response engaging and natural while maintaining this clear structure.
@@ -356,11 +383,11 @@ Please provide fashion advice and product recommendations based on these options
     
     except Exception as e:
         st.error(f"Error in multimodal RAG: {str(e)}")
+        st.error("Full error details:", exc_info=True)  # Additional error details
         return {
             "response": "I encountered an error while processing your request. Please try again.",
             "metadata": None
         }
-
 # Extract video ID and platform from URL
 def get_video_id_from_url(video_url):
 
