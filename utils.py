@@ -185,7 +185,6 @@ def search_similar_videos(image_file, top_k=5):
         return None
 
 
-# Get response using text embeddings to get multimodal result
 def get_rag_response(question):
     try:
         # Initialize TwelveLabs client
@@ -213,7 +212,7 @@ def get_rag_response(question):
             param=search_params,
             limit=2,  # Get top 2 text matches
             expr="embedding_type == 'text'",
-            output_fields=["metadata"]
+            output_fields=["metadata", "vector"]  # Also retrieve the vector field
         )
         
         # Search for relevant video segments
@@ -223,7 +222,7 @@ def get_rag_response(question):
             param=search_params,
             limit=3,  # Get top 3 video segments
             expr="embedding_type == 'video'",
-            output_fields=["metadata"]
+            output_fields=["metadata", "vector"]  # Also retrieve the vector field
         )
 
         # Process text results
@@ -238,11 +237,10 @@ def get_rag_response(question):
                     "title": metadata.get('title', 'Untitled'),
                     "description": metadata.get('description', 'No description available'),
                     "product_id": metadata.get('product_id', ''),
-                    "video_url": metadata.get('video_url', ''),
-                    "link": metadata.get('link', ''),
                     "similarity": similarity,
                     "raw_score": hit.score,
-                    "type": "text"
+                    "type": "text",
+                    "embedding": hit.entity.get('vector')
                 })
 
         # Process video results
@@ -257,13 +255,10 @@ def get_rag_response(question):
                     "title": metadata.get('title', 'Untitled'),
                     "description": metadata.get('description', 'No description available'),
                     "product_id": metadata.get('product_id', ''),
-                    "video_url": metadata.get('video_url', ''),
-                    "link": metadata.get('link', ''),
                     "similarity": similarity,
                     "raw_score": hit.score,
-                    "start_time": metadata.get('start_time', 0),
-                    "end_time": metadata.get('end_time', 0),
-                    "type": "video"
+                    "type": "video",
+                    "embedding": hit.entity.get('vector')
                 })
 
         if not text_docs and not video_docs:
@@ -272,19 +267,37 @@ def get_rag_response(question):
                 "metadata": None
             }
 
-        # Create context from text results only for LLM
-        text_context = "\n\n".join([
-            f"Product: {doc['title']}\nDescription: {doc['description']}\nLink: {doc['link']}"
-            for doc in text_docs
-        ])
+        # Create context from both text and video results for LLM
+        combined_context = []
+        
+        # Add text results context
+        for doc in text_docs:
+            combined_context.append(
+                f"Product: {doc['title']}\n"
+                f"Description: {doc['description']}\n"
+                f"Text Embedding Vector: {doc['embedding']}"
+            )
+        
+        # Add video results context with embeddings
+        for doc in video_docs:
+            combined_context.append(
+                f"Product Video: {doc['title']}\n"
+                f"Description: {doc['description']}\n"
+                f"Video Embedding Vector: {doc['embedding']}"
+            )
+        
+        # Join all context together
+        full_context = "\n\n".join(combined_context)
 
         # Create messages for chat completion
         messages = [
             {
                 "role": "system",
                 "content": """You are a professional fashion advisor and AI shopping assistant.
+                You have access to both text descriptions and their embedding vectors, as well as video content embeddings.
+                Use this multimodal information to provide more accurate and relevant recommendations.
+                
                 Organize your response in the following format:
-
                 First, provide a brief, direct answer to the user's query
                 Then, describe any relevant products found that match their request, including:
                    - Product name and key features
@@ -299,8 +312,8 @@ def get_rag_response(question):
                 "role": "user",
                 "content": f"""Query: {question}
 
-Available Products:
-{text_context}
+Available Products with Embeddings:
+{full_context}
 
 Please provide fashion advice and product recommendations based on these options."""
             }
@@ -331,7 +344,6 @@ Please provide fashion advice and product recommendations based on these options
             "response": "I encountered an error while processing your request. Please try again.",
             "metadata": None
         }
- 
 
 # Extract video ID and platform from URL
 def get_video_id_from_url(video_url):
