@@ -362,12 +362,6 @@ def get_rag_response(question):
         # Join all context together
         full_context = "\n\n".join(combined_context)
         
-        # Log the full context
-        st.write("\n=== Full Context Being Sent to LLM ===")
-        st.write("Number of text documents:", len(text_docs))
-        st.write("Number of video documents:", len(video_docs))
-        st.write("\nComplete Context:")
-        st.code(full_context, language="text")  # Using st.code for better formatting
 
         # Create messages for chat completion
         messages = [
@@ -377,7 +371,7 @@ def get_rag_response(question):
                 You have access to both text descriptions and video content.
                 Use this multimodal information to provide accurate and relevant recommendations.
                 Pay attention to the match scores and video segments to prioritize the most relevant content.
-                When referring to products, mention their links so users can find them easily.
+        
                 
                 Organize your response in the following format:
                 First, provide a brief, direct answer to the user's query
