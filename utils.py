@@ -237,6 +237,8 @@ def get_rag_response(question):
                     "title": metadata.get('title', 'Untitled'),
                     "description": metadata.get('description', 'No description available'),
                     "product_id": metadata.get('product_id', ''),
+                    "video_url": metadata.get('video_url', ''),
+                    "link": metadata.get('link', '#'),  # Default to '#' if no link
                     "similarity": similarity,
                     "raw_score": hit.score,
                     "type": "text"
@@ -245,7 +247,8 @@ def get_rag_response(question):
         # Process video results
         video_docs = []
         video_semantic_info = []
-        video_embeds = []  # Store video embeds for UI display
+        video_embeds = []
+        seen_products = set()  # Track unique products
         
         st.write("=== Starting Video Processing ===")
         
@@ -253,7 +256,7 @@ def get_rag_response(question):
             st.write(f"\nProcessing {len(hits)} video hits")
             for hit in hits:
                 metadata = hit.metadata
-                st.write("\nFull metadata:", metadata)  # Debug full metadata
+                st.write("\nFull metadata:", metadata)
                 
                 similarity = round((hit.score + 1) * 50, 2)
                 similarity = max(0, min(100, similarity))
@@ -261,10 +264,12 @@ def get_rag_response(question):
                 start_time = metadata.get('start_time', 0)
                 end_time = metadata.get('end_time', 0)
                 video_url = metadata.get('video_url', '')
+                product_link = metadata.get('link', '#')  # Default to '#' if no link
                 
-                st.write(f"\nProcessing video:")
+                st.write("\nProcessing video:")
                 st.write(f"- Title: {metadata.get('title', 'Untitled')}")
                 st.write(f"- Video URL: {video_url}")
+                st.write(f"- Product Link: {product_link}")
                 st.write(f"- Start Time: {start_time}")
                 st.write(f"- End Time: {end_time}")
                 st.write(f"- Similarity: {similarity}%")
@@ -277,16 +282,19 @@ def get_rag_response(question):
                         st.write("Embed HTML generated successfully")
                         st.write("Embed HTML preview:", embed_html[:200] + "..." if len(embed_html) > 200 else embed_html)
                         
-                        video_embeds.append({
-                            'title': metadata.get('title', 'Untitled'),
-                            'embed_html': embed_html,
-                            'similarity': similarity,
-                            'start_time': start_time,
-                            'end_time': end_time,
-                            'video_url': video_url,
-                            'link': metadata.get('link', '')  # Add product link
-                        })
-                        st.write("Video embed added to list")
+                        product_key = f"{metadata.get('product_id', '')}_{start_time}_{end_time}"
+                        if product_key not in seen_products:
+                            video_embeds.append({
+                                'title': metadata.get('title', 'Untitled'),
+                                'embed_html': embed_html,
+                                'similarity': similarity,
+                                'start_time': start_time,
+                                'end_time': end_time,
+                                'video_url': video_url,
+                                'link': product_link
+                            })
+                            seen_products.add(product_key)
+                            st.write("Video embed added to list")
                     except Exception as e:
                         st.error(f"Error creating video embed: {str(e)}")
                 else:
@@ -301,7 +309,8 @@ def get_rag_response(question):
                     "type": "video",
                     "start_time": start_time,
                     "end_time": end_time,
-                    "video_url": video_url
+                    "video_url": video_url,
+                    "link": product_link
                 })
                 
                 video_semantic_info.append(
@@ -352,6 +361,7 @@ def get_rag_response(question):
                 You have access to both text descriptions and video content.
                 Use this multimodal information to provide accurate and relevant recommendations.
                 Pay attention to the match scores and video segments to prioritize the most relevant content.
+                When referring to products, mention their links so users can find them easily.
                 
                 Organize your response in the following format:
                 First, provide a brief, direct answer to the user's query
@@ -393,8 +403,8 @@ Please provide fashion advice and product recommendations based on these options
             for idx, video in enumerate(video_embeds):
                 st.write(f"\nDisplaying video {idx + 1}:")
                 st.write(f"**{video['title']}** (Similarity: {video['similarity']}%)")
-                st.write(f"Product Link: [View Product]({video['link']})")  # Display as clickable link
-                st.write(f"Video URL: {video['video_url']}")
+                if video['link'] != '#':
+                    st.markdown(f"[View Product]({video['link']})")
                 st.write(f"Segment: {video['start_time']}s to {video['end_time']}s")
                 
                 try:
@@ -415,13 +425,13 @@ Please provide fashion advice and product recommendations based on these options
                 "total_sources": len(text_docs) + len(video_docs),
                 "text_sources": len(text_docs),
                 "video_sources": len(video_docs),
-                "video_embeds": video_embeds  # Include video embeds in metadata
+                "video_embeds": video_embeds
             }
         }
     
     except Exception as e:
         st.error(f"Error in multimodal RAG: {str(e)}")
-        st.error("Full error details:", exc_info=True)
+        st.error(f"Full error details: {str(e)}")  # Fixed error logging
         return {
             "response": "I encountered an error while processing your request. Please try again.",
             "metadata": None
