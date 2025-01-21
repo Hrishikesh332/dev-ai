@@ -247,10 +247,14 @@ def get_rag_response(question):
         video_semantic_info = []
         video_embeds = []  # Store video embeds for UI display
         
+        st.write("=== Starting Video Processing ===")
+        
         for hits in video_results:
-            st.write(f"Processing {len(hits)} video hits")
+            st.write(f"\nProcessing {len(hits)} video hits")
             for hit in hits:
                 metadata = hit.metadata
+                st.write("\nFull metadata:", metadata)  # Debug full metadata
+                
                 similarity = round((hit.score + 1) * 50, 2)
                 similarity = max(0, min(100, similarity))
                 
@@ -258,19 +262,34 @@ def get_rag_response(question):
                 end_time = metadata.get('end_time', 0)
                 video_url = metadata.get('video_url', '')
                 
-                st.write(f"Video URL: {video_url}")
-                st.write(f"Segment times - Start: {start_time}, End: {end_time}")
+                st.write(f"\nProcessing video:")
+                st.write(f"- Title: {metadata.get('title', 'Untitled')}")
+                st.write(f"- Video URL: {video_url}")
+                st.write(f"- Start Time: {start_time}")
+                st.write(f"- End Time: {end_time}")
+                st.write(f"- Similarity: {similarity}%")
                 
                 # Generate video embed HTML
                 if video_url:
-                    embed_html = create_video_embed(video_url, start_time, end_time)
-                    video_embeds.append({
-                        'title': metadata.get('title', 'Untitled'),
-                        'embed_html': embed_html,
-                        'similarity': similarity,
-                        'start_time': start_time,
-                        'end_time': end_time
-                    })
+                    st.write("\nGenerating video embed...")
+                    try:
+                        embed_html = create_video_embed(video_url, start_time, end_time)
+                        st.write("Embed HTML generated successfully")
+                        st.write("Embed HTML preview:", embed_html[:200] + "..." if len(embed_html) > 200 else embed_html)
+                        
+                        video_embeds.append({
+                            'title': metadata.get('title', 'Untitled'),
+                            'embed_html': embed_html,
+                            'similarity': similarity,
+                            'start_time': start_time,
+                            'end_time': end_time,
+                            'video_url': video_url  # Include video URL in embed data
+                        })
+                        st.write("Video embed added to list")
+                    except Exception as e:
+                        st.error(f"Error creating video embed: {str(e)}")
+                else:
+                    st.write("No video URL found in metadata")
                 
                 video_docs.append({
                     "title": metadata.get('title', 'Untitled'),
@@ -363,13 +382,26 @@ Please provide fashion advice and product recommendations based on these options
         )
 
         # Display video embeds in the UI
+        st.write("\n=== Displaying Video Results ===")
+        st.write(f"Number of video embeds: {len(video_embeds)}")
+        
         if video_embeds:
             st.write("### Relevant Video Segments")
-            for video in video_embeds:
+            for idx, video in enumerate(video_embeds):
+                st.write(f"\nDisplaying video {idx + 1}:")
                 st.write(f"**{video['title']}** (Similarity: {video['similarity']}%)")
+                st.write(f"Video URL: {video['video_url']}")
                 st.write(f"Segment: {video['start_time']}s to {video['end_time']}s")
-                st.markdown(video['embed_html'], unsafe_allow_html=True)
+                
+                try:
+                    st.write("Attempting to display video embed...")
+                    st.components.v1.html(video['embed_html'], height=400)
+                    st.write("Video embed displayed successfully")
+                except Exception as e:
+                    st.error(f"Error displaying video {idx + 1}: {str(e)}")
                 st.write("---")
+        else:
+            st.write("No video embeds to display")
 
         # Format and return response
         return {
@@ -390,7 +422,6 @@ Please provide fashion advice and product recommendations based on these options
             "response": "I encountered an error while processing your request. Please try again.",
             "metadata": None
         }
-
 
 
 
