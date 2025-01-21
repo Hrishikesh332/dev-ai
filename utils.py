@@ -396,7 +396,7 @@ Available Products and Content Analysis:
 Please provide fashion advice and product recommendations based on these options."""
             }
         ]
-
+        print(full_context)
         # Get response from OpenAI
         chat_response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
